@@ -11,24 +11,25 @@ const char *wifi_ID = "GuysHouse"; //set up with NETGEAR router
 const char *password = "Proverbs910";
 const char *ntpServer = "pool.ntp.org";
 
-int schedule_time;
+static int schedule_times[5] = {11, 23, 0, 1, 2};
+static int number_of_schedules = sizeof(schedule_times)/sizeof(schedule_times[0]);
 
-double utc = -6*3600; //time displayed as universal time. adjusted from greenwich mean time
-double daylight_savings = 3600; //account for daylight savings. Figure out how to change this when daylight savings is over 
+double utc = -6*3600; //time displayed as universal time. adjusted from greenwich mean time. Maybe include a function where this is adjustable?
+double daylight_savings = 3600; //account for daylight savings. Figure out how to change this when daylight savings is over. Include a feature where its adjustable?
 
-struct tm universal_time; //time struct to keep track of utc time on ESP32
+static struct tm universal_time; //time struct to keep track of utc time on ESP32
 
-static int tempSensor_input = 26;
-static int fan_power = 27;
-static int SQM_power = 15;
-static int miniPC_power = 32;
-static int dewHeater_power = 14;
+const int tempSensor_input = 26; //names for pins 
+const int fan_power = 27;
+const int SQM_power = 15;
+const int miniPC_power = 32;
+const int dewHeater_power = 14;
 
 
 // put function declarations here:
 void temp_read(void); //record temperature. If it is too hot, fan will turn on
 void time_read(void);
-void communication();
+void communication(void);
 void WiFi_initializing(void);
 void socket_setup(void);
 
@@ -71,7 +72,7 @@ void loop() {
   //digitalWrite(15, HIGH);
   //digitalWrite(32, HIGH);
   //digitalWrite(14, HIGH);
-  delay(500);
+  delay(500); //delays translate to a 1 second clock update (500ms + 500ms = 1s )
 }
 
 // put function definitions here:
@@ -83,23 +84,36 @@ void temp_read(void) {
   Serial.print("Temperature: ");
   Serial.println(temp);
 
-  if(temp>=90){ //subject to change. This is to turn on fan if its too hot
-    digitalWrite(27, LOW);
+  if(temp>=90){ //subject to change. This is to turn on fan if its too hot in the enclosure as determined by the DS18B20 sensor
+    digitalWrite(fan_power, LOW);
   }
   else{
-    digitalWrite(27, HIGH);
+    digitalWrite(fan_power, HIGH);
   }
 }
 
 void time_read(void){
+  int i;
+
   getLocalTime(&universal_time);
   Serial.print(universal_time.tm_hour);
   Serial.print(":");
   Serial.print(universal_time.tm_min);
   Serial.print(":");
   Serial.println(universal_time.tm_sec);
-  if(universal_time.tm_hour == (22||0||2)){
-
+  
+  for(i=0; i<number_of_schedules; i++){ //this method for turning on at a schedule can be improved
+    if((universal_time.tm_hour == schedule_times[i]) && (universal_time.tm_min < 35)){
+      digitalWrite(SQM_power, HIGH);
+      digitalWrite(dewHeater_power, HIGH);
+      digitalWrite(miniPC_power, HIGH);
+      break;
+    }
+    else{
+      digitalWrite(SQM_power, LOW);
+      digitalWrite(dewHeater_power, LOW);
+      digitalWrite(miniPC_power, LOW);
+    }
   }
 }
 
