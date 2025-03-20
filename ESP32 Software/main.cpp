@@ -2,29 +2,31 @@
 #include <DallasTemperature.h>
 #include <OneWire.h>
 #include <Wifi.h>
+#include <SPI.h>
 #include <time.h>
 #include <stdlib.h>
 
 using namespace std;
 
-const char *wifi_ID = "GuysHouse"; //set up with NETGEAR router
+const char *wifi_ID = "GuysHouse"; //set up with the NETGEAR router
 const char *password = "Proverbs910";
 const char *ntpServer = "pool.ntp.org";
 
-static int schedule_times[5] = {11, 23, 0, 1, 2};
+static int schedule_times[5] = {12, 23, 0, 1, 2};
 static int number_of_schedules = sizeof(schedule_times)/sizeof(schedule_times[0]);
 
-double utc = -6*3600; //time displayed as universal time. adjusted from greenwich mean time. Maybe include a function where this is adjustable?
+double utc = -6*3600; //time displayed as military time. adjusted from greenwich mean time to central time. Maybe include a function where this is adjustable?
 double daylight_savings = 3600; //account for daylight savings. Figure out how to change this when daylight savings is over. Include a feature where its adjustable?
 
 static struct tm universal_time; //time struct to keep track of utc time on ESP32
+
+WiFiClient client;
 
 const int tempSensor_input = 26; //names for pins 
 const int fan_power = 27;
 const int SQM_power = 15;
 const int miniPC_power = 32;
 const int dewHeater_power = 14;
-
 
 // put function declarations here:
 void temp_read(void); //record temperature. If it is too hot, fan will turn on
@@ -48,7 +50,7 @@ void setup() {
   pinMode(dewHeater_power, OUTPUT); //Connect to dew heater (GPIO 14/A6 on ADC2)
 
   WiFi_initializing(); //Connects ESP32 to WiFi
-  //socket_setup();
+  socket_setup(); //Connect ESP32 to remote WiFi
   configTime(utc, daylight_savings, ntpServer); //Configuring time module to npt_server
 
   tempSensor.begin(); //intializes the DS18B20 sensor 
@@ -103,7 +105,7 @@ void time_read(void){
   Serial.println(universal_time.tm_sec);
   
   for(i=0; i<number_of_schedules; i++){ //this method for turning on at a schedule can be improved
-    if((universal_time.tm_hour == schedule_times[i]) && (universal_time.tm_min < 35)){
+    if((universal_time.tm_hour == schedule_times[i]) && (universal_time.tm_min < 25)){
       digitalWrite(SQM_power, HIGH);
       digitalWrite(dewHeater_power, HIGH);
       digitalWrite(miniPC_power, HIGH);
@@ -121,12 +123,13 @@ void WiFi_initializing(void){
   int fail_count = 0;
 
   WiFi.begin(wifi_ID, password);
-  Serial.print("Connecting to WiFi...");
+  Serial.print("Connecting to ");
+  Serial.print(wifi_ID);
+  Serial.print("...");
   while (WiFi.status()!=WL_CONNECTED){
     Serial.print(".");
     digitalWrite(LED_BUILTIN, HIGH);
     delay(250);
-    digitalWrite(LED_BUILTIN, LOW);
     delay(250);
     if(fail_count >= 20){
       Serial.print("WiFi connection is taking too long! Exiting program.");
@@ -144,5 +147,13 @@ void WiFi_initializing(void){
 }
 
 void socket_setup(void){
+  Serial.println("Connecting client to server...");
+  if(client.connect("google.com", 80)){
+    Serial.println("Client has connected!");
+  }
+  else{
+    Serial.println("Client connection has failed!");
+    exit(1);
+  }
 
 }
