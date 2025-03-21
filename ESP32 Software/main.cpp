@@ -141,6 +141,8 @@ void WiFi_initializing(void){
   }
   Serial.println();
   Serial.println("Connected!");
+  Serial.print("IP: ");
+  Serial.println(WiFi.localIP());
   digitalWrite(LED_BUILTIN, HIGH);
   delay(3000);
   digitalWrite(LED_BUILTIN, LOW);
