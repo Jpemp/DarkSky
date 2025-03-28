@@ -4,17 +4,17 @@
 #include <Wifi.h>
 #include <SPI.h>
 #include <time.h>
-#include <stdlib.h>
 
 using namespace std;
 
-const char *wifi_ID = "GuysHouse"; //set up with the NETGEAR router
-const char *password = "Proverbs910";
+const char *wifi_ID = "NTGR_26A4_5G"; //set up with the NETGEAR router
+const char *password = "wp2aVA7s";
 const char *ntpServer = "pool.ntp.org";
 
 WiFiClient client; //creates a client socket
+IPAddress ip; //IP address of ESP32
 
-const char *server_name = "198.232.113.74"; //put remote PC IP address here 
+String server_name; //put remote PC IP address here 
 
 static int schedule_times[5] = {12, 23, 0, 1, 2};
 static int number_of_schedules = sizeof(schedule_times)/sizeof(schedule_times[0]);
@@ -52,7 +52,7 @@ void setup() {
   pinMode(dewHeater_power, OUTPUT); //Connect to dew heater (GPIO 14/A6 on ADC2)
 
   WiFi_initializing(); //Connects ESP32 to WiFi
-  //socket_setup(); //Connect ESP32 to remote WiFi
+  //socket_setup(); //Connect ESP32 to computer
   configTime(utc, daylight_savings, ntpServer); //Configuring time module to npt_server
 
   tempSensor.begin(); //intializes the DS18B20 sensor 
@@ -62,9 +62,10 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   digitalWrite(LED_BUILTIN, HIGH);
-  //communication();
-  //temp_read();
+
   time_read();
+  temp_read();
+  //communication();
   //digitalWrite(27, LOW);
   //digitalWrite(15, LOW);
   //digitalWrite(32, LOW);
@@ -108,7 +109,7 @@ void time_read(void){
   Serial.println(universal_time.tm_sec);
   
   for(i=0; i<number_of_schedules; i++){ //this method for turning on at a schedule can be improved
-    if((universal_time.tm_hour == schedule_times[i]) && (universal_time.tm_min < 25)){
+    if((universal_time.tm_hour == schedule_times[i]) && (universal_time.tm_min < 30)){
       digitalWrite(SQM_power, HIGH);
       digitalWrite(dewHeater_power, HIGH);
       digitalWrite(miniPC_power, HIGH);
@@ -152,9 +153,14 @@ int WiFi_initializing(void){ //ensure esp32 is a client/station mode
   return 0;
 }
 
-/*int socket_setup(void){
+int socket_setup(void){
+  Serial.print("ESP32 IP: ");
+  Serial.println(WiFi.localIP());
+  Serial.println("Enter Server IP: ");
+  server_name = Serial.readString();
   Serial.println("Connecting client to server...");
-  if(client.connect("10.176.31.78", 80)){
+  while(client.connect("S", 80));
+  if(client.connect(server_name.c_str(), 80)){
     Serial.println("Client has connected!");
     return 0;
   }
@@ -163,7 +169,7 @@ int WiFi_initializing(void){ //ensure esp32 is a client/station mode
     return -1;
   }
 
-}*/
+}
 
 void communication(void){
   int x=0;
