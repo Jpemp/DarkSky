@@ -12,6 +12,10 @@ const char *wifi_ID = "GuysHouse"; //set up with the NETGEAR router
 const char *password = "Proverbs910";
 const char *ntpServer = "pool.ntp.org";
 
+WiFiClient client; //creates a client socket
+
+const char *server_name = "198.232.113.74"; //put remote PC IP address here 
+
 static int schedule_times[5] = {12, 23, 0, 1, 2};
 static int number_of_schedules = sizeof(schedule_times)/sizeof(schedule_times[0]);
 
@@ -20,9 +24,8 @@ double daylight_savings = 3600; //account for daylight savings. Figure out how t
 
 static struct tm universal_time; //time struct to keep track of utc time on ESP32
 
-WiFiClient client;
-
-const int tempSensor_input = 26; //names for pins 
+//names of pins
+const int tempSensor_input = 26; //A0 
 const int fan_power = 27;
 const int SQM_power = 15;
 const int miniPC_power = 32;
@@ -31,9 +34,8 @@ const int dewHeater_power = 14;
 // put function declarations here:
 void temp_read(void); //record temperature. If it is too hot, fan will turn on
 void time_read(void);
-void communication(void);
-void WiFi_initializing(void);
-void socket_setup(void);
+int WiFi_initializing(void);
+int socket_setup(void);
 
 OneWire oneWire(tempSensor_input); //GPIO 26/A0 is input for digital temp reader. Argument tells OneWire(DS18B20) which pin the reader info is going to 
 DallasTemperature tempSensor(&oneWire); //passes GPIO address to DallasTemperature. Pointer parameter requires this. Address points to GPIO pin 34
@@ -50,7 +52,7 @@ void setup() {
   pinMode(dewHeater_power, OUTPUT); //Connect to dew heater (GPIO 14/A6 on ADC2)
 
   WiFi_initializing(); //Connects ESP32 to WiFi
-  socket_setup(); //Connect ESP32 to remote WiFi
+  //socket_setup(); //Connect ESP32 to remote WiFi
   configTime(utc, daylight_savings, ntpServer); //Configuring time module to npt_server
 
   tempSensor.begin(); //intializes the DS18B20 sensor 
@@ -60,6 +62,7 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   digitalWrite(LED_BUILTIN, HIGH);
+  //communication();
   //temp_read();
   time_read();
   //digitalWrite(27, LOW);
@@ -119,7 +122,7 @@ void time_read(void){
   }
 }
 
-void WiFi_initializing(void){
+int WiFi_initializing(void){ //ensure esp32 is a client/station mode
   int fail_count = 0;
 
   WiFi.begin(wifi_ID, password);
@@ -130,10 +133,12 @@ void WiFi_initializing(void){
     Serial.print(".");
     digitalWrite(LED_BUILTIN, HIGH);
     delay(250);
+    digitalWrite(LED_BUILTIN, LOW);
     delay(250);
     if(fail_count >= 20){
+      Serial.println("");
       Serial.print("WiFi connection is taking too long! Exiting program.");
-      exit(1); //if it's taking too long to connect to WiFi, end program
+      return -1; //if it's taking too long to connect to WiFi, end program
     }
     else{
       fail_count++;
@@ -141,21 +146,25 @@ void WiFi_initializing(void){
   }
   Serial.println();
   Serial.println("Connected!");
-  Serial.print("IP: ");
-  Serial.println(WiFi.localIP());
   digitalWrite(LED_BUILTIN, HIGH);
   delay(3000);
   digitalWrite(LED_BUILTIN, LOW);
+  return 0;
 }
 
-void socket_setup(void){
+/*int socket_setup(void){
   Serial.println("Connecting client to server...");
-  if(client.connect("google.com", 80)){
+  if(client.connect("10.176.31.78", 80)){
     Serial.println("Client has connected!");
+    return 0;
   }
   else{
-    Serial.println("Client connection has failed!");
-    exit(1);
+    Serial.println("Client connection to server has failed!");
+    return -1;
   }
 
+}*/
+
+void communication(void){
+  int x=0;
 }
