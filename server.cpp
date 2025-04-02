@@ -23,42 +23,64 @@ int main(void) {
     server.ai_flags = AI_PASSIVE; //indicates that this address will be used for socket binding
     char port_number[] = "8080"; //contains the port number for the socket. Figure out how to change this rather than using locking it in code so it doesn't need to recompile if other applications are using this port
 
-    cout << "test 1" << endl;
+    //cout << "test 1" << endl;
     WSADATA wsaData; //creates a structre to put the Windows socket data in
     errorFlag = WSAStartup(MAKEWORD(2,2), &wsaData); //allows Winsock socket programming to work on Windows by initializing WS2_32.dll. MAKEWORD tells Windows to use Winsock version 2.2 and stores the Windows socket data in wsaData
     if (errorFlag != 0) {
-        cout << "Couldn't start up windows sockets: ";
+        cout << "Couldn't start up windows sockets: error ";
         cout << errorFlag << endl;
         WSACleanup(); //terminates any socket processes that may still run even if the program has stopped
         return -1;
     }
-    cout << "test 2" <<endl;
+    //cout << "test 2" <<endl;
     errorFlag = getaddrinfo(NULL, port_number, &server, &result); //creates an addrinfo structure from the first 3 arguments that'll be stored in linked list, "result"
     if (errorFlag != 0) {
-        cout << "Failed to get address information: ";
+        cout << "Failed to get address information: error ";
         cout << errorFlag << endl;
+        WSACleanup();
         return -1;
     }
 
-    cout << "test 3" << endl;
-    int serverSocket = socket(AF_INET, SOCK_STREAM, 0); //creating the server socket
+    //cout << "test 3" << endl;
+    int serverSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol); //creating the server socket
     if (serverSocket == INVALID_SOCKET) {
-        cout << "Socket function failed! Exiting program..." << endl;
+        cout << "Socket function failed: error " << endl;
+        cout << WSAGetLastError() << endl;
+        WSACleanup();
         return -1;
     }
 
-    if (bind(serverSocket, (struct sockaddr*)&server, sizeof(server)) == SOCKET_ERROR) { //binds the server socket
+    //cout << "test 4" << endl;
+    errorFlag = bind(serverSocket, result->ai_addr, result->ai_addrlen); //binds the server socket
+    if(errorFlag!=0) {
+        cout << "Couldn't bind a socket: error ";
+        cout << errorFlag << endl;
+        WSACleanup();
+        return -1;
+     }
 
+    //cout << "test 5" << endl;
+    errorFlag = listen(serverSocket, 10); //enable the server socket to listen (wait) for the client socket
+    if (errorFlag!=0){
+        cout << "Socket listening failed: error ";
+        cout << errorFlag << endl;
+        WSACleanup();
         return -1;
     }
-    if (listen(serverSocket, 10) == SOCKET_ERROR) { //enable the server socket to listen (wait) for the client socket
-        return -1;
-    }
 
+    //cout << "test 6" << endl;
+    cout << "Listening for client socket..." << endl;
     int clientSocket = accept(serverSocket, NULL, NULL); //connects a client socket to the server socket
     if (clientSocket == INVALID_SOCKET) {
+        cout << "Couldn't accept a socket: error ";
+        cout << WSAGetLastError() << endl;
         return -1;
+    }
+    else {
+        cout << "Client has connected!" << endl;
     }
 
     return 0;
 }
+
+/* NEED TO CHANGE THIS AND CONFIGURE AS A CLIENT SOCKET. MAYBE??? NEED FURTHER RESEARCH*/
