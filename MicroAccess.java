@@ -1,1 +1,2 @@
-JButton systemMonitor = new JButton("") //Stuff to add to Edgar's code. My own design.
+JButton scheduleChanger = new JButton("Change Time Schedule"); //Stuff to add to Edgar's code. My own design.
+scheduleChanger.setFont(new Font("Arial", Font.BOLD, 16);
