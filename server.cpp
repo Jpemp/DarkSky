@@ -1,11 +1,14 @@
+#include <string>
 #include <cstring>
 #include <iostream>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
-#pragma comment(lib, "Ws2_32.lib")
+#pragma comment(lib, "Ws2_32.lib") //needs to be added or else socket programming won't work on Windows
 
 using namespace std;
+
+static bool disconnectFlag = false;
 
 int main(void) {
 
@@ -77,10 +80,20 @@ int main(void) {
         return -1;
     }
     else {
-        cout << "Client has connected!" << endl;
+        cout << "Client has connected!" << endl; //Server and client are succesfully connected. Time to test sending and recieving messages.
+        const char servMessage[256] = "Server Message";
+        char clieMessage[256];
+        while (!disconnectFlag) {
+            send(clientSocket,servMessage, 256, 0);
+            recv(clientSocket, clieMessage, 256, 0);
+        
+            cout << clieMessage << endl;
+            disconnectFlag = true;
+        }
+
     }
+
+
 
     return 0;
 }
-
-/* NEED TO CHANGE THIS AND CONFIGURE AS A CLIENT SOCKET. MAYBE??? NEED FURTHER RESEARCH*/
