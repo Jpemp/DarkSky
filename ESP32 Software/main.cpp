@@ -8,10 +8,8 @@
 
 using namespace std;
 
-const char *wifi_ID = "GuysHouse";
-const char *password = "Proverbs910";
-//const char *wifi_ID = "NTGR_26A4_5G"; //set up with the NETGEAR router
-//const char *password = "wp2aVA7s";
+const char *wifi_ID = "NTGR_26A4_5G"; //set up with the NETGEAR router
+const char *password = "wp2aVA7s";
 const char *ntpServer = "pool.ntp.org"; //time server to connect to in order to get local time.
 const char *compServerIP = "192.168.1.180";
 
