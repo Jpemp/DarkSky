@@ -8,9 +8,16 @@
 
 using namespace std;
 
-static bool disconnectFlag = false;
+static bool connectFlag = false;
 
-int main(void) {
+//function declarations
+void temp_settings();
+void fan_settings();
+void time_settings();
+void power_settings();
+void system_data();
+
+int main() {
 
     int errorFlag; //will be used to handle and detect errors with winsock2.h functions
 
@@ -77,23 +84,100 @@ int main(void) {
     if (clientSocket == INVALID_SOCKET) {
         cout << "Couldn't accept a socket: error ";
         cout << WSAGetLastError() << endl;
+        closesocket(clientSocket); //closes the socket connection
+        WSACleanup();
         return -1;
     }
     else {
-        cout << "Client has connected!" << endl; //Server and client are succesfully connected. Time to test sending and recieving messages.
-        const char servMessage[256] = "Server Message";
-        char clieMessage[256];
-        while (!disconnectFlag) {
+        cout << "ESP32 has connected to computer!" << endl; //Server and client are succesfully connected. Time to test sending and recieving messages.
+        connectFlag = true;
+        char settingAccess;
+
+
+        while (connectFlag) {
+            cout << "Settings:" << endl;
+            cout << "(0): Exit" << endl;
+            cout << "(1): System Data" << endl;
+            cout << "(2): Fan" << endl;
+            cout << "(3): Temperature Sensor" << endl;
+            cout << "(4): Time Module" << endl;
+            cout << "(5): System Power" << endl;
+
+            cin >> settingAccess;
+
+            switch (settingAccess) {
+                case '0':
+                    cout << "Exiting program!" << endl;
+                    connectFlag = false;
+                    break;
+                case '1':
+                    system_data();
+                    break;
+                case '2':
+                    fan_settings();
+                    break;
+                case '3':
+                    temp_settings();
+                    break;
+                case '4':
+                    time_settings();
+                    break;
+                case '5':
+                    power_settings();
+                    break;
+                default:
+                    cout << "That was an invalid entry! Please try again." << endl;
+                    break;
+            }
+        }
+        /*//const char servMessage[256] = "Server Message";
+        char servMessage[256] = "Hello from Server";
+        char clieMessage[256] = "";
+            
+
+        while (connectFlag) {
+            
+            //cin >> servMessage;
             send(clientSocket,servMessage, 256, 0);
             recv(clientSocket, clieMessage, 256, 0);
-        
-            cout << clieMessage << endl;
-            disconnectFlag = true;
-        }
+            connectFlag = false;
 
+        }
+        cout << clieMessage << endl;
+        */
     }
 
-
+    closesocket(clientSocket);
 
     return 0;
+}
+
+void temp_settings() {
+    cout << "Temperature:" << endl;
+    cout << "(0): Exit" << endl;
+    cout << "(1): Change Temperature Settings" << endl;
+    cout << "Current Temperature" << endl;
+    cout << "Temperature-Fan Condition" << endl;
+}
+void fan_settings() {
+    cout << "Fan:" << endl;
+    cout << "(0): Exit" << endl;
+    cout << "(1): Change Fan Settings" << endl;
+    cout << "Fan Speed" << endl;
+}
+void time_settings() {
+    cout << "Time Settings:" << endl;
+    cout << "(0): Exit" << endl;
+    cout << "(1): Change Time Settings" << endl;
+}
+void power_settings() {
+    cout << "Power Settings:" << endl;
+    cout << "(0): Exit" << endl;
+    cout << "(1): Turn On Recording System" << endl;
+    cout << "(2): Turn On Fan" << endl;
+
+}
+
+void system_data() {
+
 }
