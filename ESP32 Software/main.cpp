@@ -8,15 +8,19 @@
 
 using namespace std;
 
-const char *wifi_ID = "NTGR_26A4_5G"; //set up with the NETGEAR router
-const char *password = "wp2aVA7s";
+const char *wifi_ID = "GuysHouse";
+const char *password = "Proverbs910";
+//const char *wifi_ID = "NTGR_26A4_5G"; //set up with the NETGEAR router
+//const char *password = "wp2aVA7s";
 const char *ntpServer = "pool.ntp.org"; //time server to connect to in order to get local time.
 const char *compServerIP = "192.168.1.180";
 
 static bool connectFlag = false; //indicate if the ESP32 client socket is connected to server socket
+static char serverCommand[250] = ""; //used to store messages from server
 
 WiFiClient client; //creates a client socket
-IPAddress ip; //IP address of ESP32
+
+TaskHandle_t connection_task; //allows for more effecient code by doing socket checking and socket handling by core 0, while the rest of the code is handled by core 1. ESP32 is a dual core system
 
 static int schedule_times[5] = {12, 23, 0, 1, 2};
 static int number_of_schedules = sizeof(schedule_times)/sizeof(schedule_times[0]);
@@ -25,6 +29,8 @@ static double utc_offset = -6*3600; //time displayed as military time. adjusted 
 static double daylight_savings = 3600; //account for daylight savings. Figure out how to change this when daylight savings is over. Include a feature where its adjustable?
 
 static struct tm time_ESP32; //time struct to keep track of utc time on ESP32
+
+static float fanOnTemp = 90.0;
 
 //names of pins
 const int tempSensor_input = 26; //A0 pin. Used for DS18B20 temp sensor data line input
@@ -37,17 +43,22 @@ const int dewHeater_power = 14; //14 pin. Used for dew heater power signal to re
 
 
 // put function declarations here:
-void temp_read(void); //record internal temperature of enclosure using DS18B20 temp sensor. If it is too hot, fan will turn on
-void time_read(void); //take time from NTP server and turn on some devices according to a time schedule
-int WiFi_initializing(void); //connects ESP32 to the NETGEAR WiFi
-int socket_setup(void); //socket connection from ESP32 to a remote computer. Need to figure out how to connect between two networks.
+void temp_read(); //record internal temperature of enclosure using DS18B20 temp sensor. If it is too hot, fan will turn on
+void time_read(); //take time from NTP server and turn on some devices according to a time schedule
+void fan_read(); //reads the speed of the fan
+void WiFi_initializing(); //connects ESP32 to the NETGEAR WiFi
+void socket_connection(void*); //socket connection from ESP32 to a remote computer. Need to figure out how to connect between two networks.
 void communication();
+void fanSpeedChange();
+void timeChange();
+void tempChange();
 
 OneWire oneWire(tempSensor_input); //GPIO 26/A0 is input for digital temp reader. Argument tells OneWire(DS18B20) which pin the temp sensor data line is going to 
 DallasTemperature tempSensor(&oneWire); //passes GPIO address to DallasTemperature. Pointer parameter requires this. Address points to GPIO pin 34
 
 void setup() {
   // put your setup code here, to run once:
+
   Serial.begin(115200); //serial communication to terminal
 
   //pin configuration
@@ -61,7 +72,17 @@ void setup() {
 
   configTime(utc_offset, daylight_savings, ntpServer); //Configuring ESP32 time module to npt_server
   
-  tempSensor.begin(); //intializes the DS18B20 sensor 
+  tempSensor.begin(); //intializes the DS18B20 sensor
+
+  xTaskCreatePinnedToCore(
+    socket_connection,      //code for task
+    "SocketConnectionTask", //name of task
+    10000,                 //stack size of task
+    NULL,                   //put input paramaters here
+    1,                      //task priority
+    &connection_task,       //the struct which the xTaskCreatePinnedToCore information is passed to
+    0                       //Which core the task will run in
+  );//Sets up the task assignment to the core
 
 }
 
@@ -69,17 +90,14 @@ void loop() {
   // put your main code here, to run repeatedly:
 
   digitalWrite(LED_BUILTIN, HIGH);
-  while(connectFlag){
-    communication(); //send and recieve commands between client and server
+  
+  if(!connectFlag){
     time_read(); //read the time
     temp_read(); //read internal temperature
-    connectFlag = client.connected(); //check if client is still connected to server. If not, exit connection loop
   }
+  else{
 
-  socket_setup(); //Connect ESP32 to computer
-  
-  time_read(); //read the time
-  temp_read(); //read internal temperature
+  }
 
   //digitalWrite(27, LOW);
   //digitalWrite(15, LOW);
@@ -104,7 +122,7 @@ void temp_read(void) {
   Serial.print("Temperature: ");
   Serial.println(temp);
 
-  if(temp>=90){ //subject to change. This is to turn on fan if its too hot in the enclosure as determined by the DS18B20 sensor
+  if(temp>=fanOnTemp){ //subject to change. This is to turn on fan if its too hot in the enclosure as determined by the DS18B20 sensor
     digitalWrite(fan_power, LOW);
   }
   else{
@@ -138,7 +156,7 @@ void time_read(void){
   }
 }
 
-int WiFi_initializing(void){ //ensure esp32 is a client/station mode
+void WiFi_initializing(void){ //ensure esp32 is a client/station mode
   int fail_count = 0;
 
   WiFi.begin(wifi_ID, password);
@@ -169,74 +187,57 @@ int WiFi_initializing(void){ //ensure esp32 is a client/station mode
   delay(3000);
   digitalWrite(LED_BUILTIN, LOW);
   delay(3000);
-  return 0;
 }
 
-int socket_setup(void){
+void socket_connection(void *taskParamaters){
+  bool functionCall = false;
+  for(;;){ //infinite loop to run task in
+    delay(1000); //1 second delay to prvent watchdog trigger
+    while(!connectFlag){ //while ESP32 is disconnected from control center
+      connectFlag = client.connect(compServerIP, 8080);
+      if(!connectFlag){
+        Serial.println("No connection!");
+      }
 
-  /*int fail_count = 0;
-  Serial.print("Connecting ESP32 client to server...");
-  digitalWrite(LED_BUILTIN, HIGH);
-  while(!(client.connect(compServerIP, 8080))){
-    if(fail_count >= 10){
-      Serial.println("");
-      Serial.println("Socket connection is taking too long!");
-      return -1;
+      else{
+        Serial.println("ESP32 client has connected to a server!");
+      }
     }
-    else{
-      fail_count++;
+    
+    connectFlag = client.connected();
+    if(!connectFlag){
+      Serial.println("Computer has disconnected from ESP32!");
+      client.stop(); //ends socket connection
     }
-    Serial.print(".");
+    
+    /*while(connectFlag){ //while ESP32 is connected to control center
+      connectFlag = client.connected();
+      //Serial.println(functionCall);
+      if(!connectFlag){
+        Serial.println("Computer has disconnected from ESP32!");
+        client.stop(); //ends socket connection
+        //functionCall=false;
+      }
+      else if (connectFlag && !functionCall){
+        //communication(); //issue, make this function call only once. Task keeps going even though its in the middle of a function call, causing repeat calls
+        functionCall=true;
+      }
+      else{
+        //functionCall=false;
+      }
+    }*/
   }
-  Serial.println("ESP32 client has connected to a server!");
-  digitalWrite(LED_BUILTIN, LOW);
-  delay(1000);
-  digitalWrite(LED_BUILTIN, HIGH);
-  delay(1000);
-  digitalWrite(LED_BUILTIN, LOW);
-  delay(1000);
-  digitalWrite(LED_BUILTIN, HIGH);
-  delay(1000);
-  digitalWrite(LED_BUILTIN, LOW);
-  delay(1000);
-  digitalWrite(LED_BUILTIN, HIGH);
-  delay(5000);
-  digitalWrite(LED_BUILTIN, LOW);
-  delay(5000);
-  */
-
-  connectFlag = client.connect(compServerIP, 8080);
-  if(!connectFlag){
-    Serial.println("No connection!");
-  }
-
-  else{
-    Serial.println("ESP32 client has connected to a server!");
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(1000);
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(1000);
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(1000);
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(1000);
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(1000);
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(5000);
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(5000);
-  }
-
-  return 0;
 }
 
-void communication(void){
-  string serverCommand;
+void communication(){
+  int i = 0;
   while(client.available()){
-    serverCommand = client.read();
-    Serial.println(serverCommand.c_str());
+    //Serial.println(i);
+    serverCommand[i] = client.read();
+    i++;
   }
+  //Serial.println(serverCommand);
+  //client.write("Hello from Client");
 
-  client.write("Client Message");
 }
+
