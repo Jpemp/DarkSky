@@ -104,6 +104,7 @@ int main() {
             cout << "(5): System Power" << endl;
 
             cin >> settingAccess;
+            cout << endl;
 
             switch (settingAccess) {
                 case '0':
@@ -154,16 +155,16 @@ int main() {
 
 void temp_settings() {
     cout << "Temperature:" << endl;
-    cout << "(0): Exit" << endl;
-    cout << "(1): Change Temperature Settings" << endl;
     cout << "Current Temperature" << endl;
     cout << "Temperature-Fan Condition" << endl;
+    cout << "(0): Exit" << endl;
+    cout << "(1): Change Temperature Settings" << endl;
 }
 void fan_settings() {
     cout << "Fan:" << endl;
+    cout << "Fan Speed" << endl;
     cout << "(0): Exit" << endl;
     cout << "(1): Change Fan Settings" << endl;
-    cout << "Fan Speed" << endl;
 }
 void time_settings() {
     cout << "Time Settings:" << endl;
@@ -179,5 +180,10 @@ void power_settings() {
 }
 
 void system_data() {
-
+    cout << "System Settings:" << endl;
+    cout << endl;
+    cout << "Fan Speed:" << endl;
+    cout << "Temperature:" << endl;
+    cout << "Time:" << endl;
+    cout << "(0): Exit" << endl;
 }
