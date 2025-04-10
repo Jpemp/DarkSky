@@ -16,7 +16,7 @@ const char *ntpServer = "pool.ntp.org"; //time server to connect to in order to 
 const char *compServerIP = "192.168.1.180";
 
 static bool connectFlag = false; //indicate if the ESP32 client socket is connected to server socket
-static char serverCommand[250] = ""; //used to store messages from server
+static char serverCommand[256] = ""; //used to store messages from server
 
 WiFiClient client; //creates a client socket
 
@@ -30,7 +30,7 @@ static double daylight_savings = 3600; //account for daylight savings. Figure ou
 
 static struct tm time_ESP32; //time struct to keep track of utc time on ESP32
 
-static float fanOnTemp = 90.0;
+static float fanOnTemp = 90.0; //temperature at which the fan turns on at
 
 //names of pins
 const int tempSensor_input = 26; //A0 pin. Used for DS18B20 temp sensor data line input
@@ -43,15 +43,25 @@ const int dewHeater_power = 14; //14 pin. Used for dew heater power signal to re
 
 
 // put function declarations here:
-void temp_read(); //record internal temperature of enclosure using DS18B20 temp sensor. If it is too hot, fan will turn on
-void time_read(); //take time from NTP server and turn on some devices according to a time schedule
+void temp_read(); //record internal temperature of enclosure using DS18B20 temp sensor.
+void time_read(); //take time from NTP server.
 void fan_read(); //reads the speed of the fan
 void WiFi_initializing(); //connects ESP32 to the NETGEAR WiFi
 void socket_connection(void*); //socket connection from ESP32 to a remote computer. Need to figure out how to connect between two networks.
 void communication();
+void control_menu(char*);
 void fanSpeedChange();
 void timeChange();
 void tempChange();
+void time_check(); //turn on recording device at the scheduled time
+void temp_check(); //turn on fan if it is too hot
+void record_on();
+void fan_on();
+void record_off();
+void fan_off();
+
+static bool fanFlag = false;
+static bool recordFlag = false;
 
 OneWire oneWire(tempSensor_input); //GPIO 26/A0 is input for digital temp reader. Argument tells OneWire(DS18B20) which pin the temp sensor data line is going to 
 DallasTemperature tempSensor(&oneWire); //passes GPIO address to DallasTemperature. Pointer parameter requires this. Address points to GPIO pin 34
@@ -86,18 +96,14 @@ void setup() {
 
 }
 
-void loop() {
+void loop() { //NOTE: everything else besides the task is being ran on Core 1 I think
   // put your main code here, to run repeatedly:
 
   digitalWrite(LED_BUILTIN, HIGH);
   
-  if(!connectFlag){
-    time_read(); //read the time
-    temp_read(); //read internal temperature
-  }
-  else{
+  time_check(); //read the time
+  temp_check(); //read internal temperature
 
-  }
 
   //digitalWrite(27, LOW);
   //digitalWrite(15, LOW);
@@ -114,7 +120,7 @@ void loop() {
 }
 
 // put function definitions here:
-void temp_read(void) {
+void temp_check(void) {
   float temp;
   tempSensor.requestTemperatures();
   temp = tempSensor.getTempFByIndex(0);
@@ -130,7 +136,7 @@ void temp_read(void) {
   }
 }
 
-void time_read(void){
+void time_check(void){
   int i;
 
   Serial.print("Time: ");
@@ -191,53 +197,99 @@ void WiFi_initializing(void){ //ensure esp32 is a client/station mode
 
 void socket_connection(void *taskParamaters){
   bool functionCall = false;
-  for(;;){ //infinite loop to run task in
+  int i = 0;
+  while(true){ //infinite loop to run task in
     delay(1000); //1 second delay to prvent watchdog trigger
     while(!connectFlag){ //while ESP32 is disconnected from control center
       connectFlag = client.connect(compServerIP, 8080);
       if(!connectFlag){
-        Serial.println("No connection!");
+        Serial.println("No server connection!");
       }
 
       else{
         Serial.println("ESP32 client has connected to a server!");
       }
     }
-    
+
     connectFlag = client.connected();
     if(!connectFlag){
       Serial.println("Computer has disconnected from ESP32!");
       client.stop(); //ends socket connection
     }
-    
-    /*while(connectFlag){ //while ESP32 is connected to control center
-      connectFlag = client.connected();
-      //Serial.println(functionCall);
-      if(!connectFlag){
-        Serial.println("Computer has disconnected from ESP32!");
-        client.stop(); //ends socket connection
-        //functionCall=false;
-      }
-      else if (connectFlag && !functionCall){
-        //communication(); //issue, make this function call only once. Task keeps going even though its in the middle of a function call, causing repeat calls
-        functionCall=true;
-      }
-      else{
-        //functionCall=false;
-      }
-    }*/
+
+    else{
+      communication();
+    }
+
   }
 }
 
 void communication(){
   int i = 0;
-  while(client.available()){
-    //Serial.println(i);
-    serverCommand[i] = client.read();
-    i++;
-  }
-  //Serial.println(serverCommand);
-  //client.write("Hello from Client");
+  if (client.available()){
+    while(client.available()){
+      //Serial.println(i);
+      serverCommand[i] = client.read();
+      i++;
+    }
+    Serial.println(serverCommand);
+    control_menu(serverCommand);
+    client.write("Hello from Client");
+    memset(serverCommand, 0, sizeof(serverCommand)); //clears the serverCommand character array for the next use
 
+  }
+
+}
+
+void control_menu(char* command){
+  switch(command[0]){
+    case '0':
+      temp_read();
+      time_read();
+      fan_read();
+      break;
+    case '1':
+      fan_read();
+      //view fan data
+      break;
+    case '2':
+      temp_read();
+      //view temp data
+      break;
+    case '3':
+      time_read();
+      //view time data
+      break;
+    case '4':
+      fanSpeedChange();
+      //change fan speed
+      break;
+    case '5':
+      tempChange();
+      //change temp condition
+      break;
+    case '6':
+      timeChange();
+      //change time schedule
+      break;
+    case '7':
+      record_on();
+      //turn on recording system
+      break;
+    case '8':
+      fan_on();
+      //turn on fan
+      break;
+    case '9':
+      //turn off recording system
+      break;
+    case 'a':
+      //turn off fan
+      break;
+    default:
+      Serial.println("Invalid Command");
+      break;
+ 
+  }
 }
 
