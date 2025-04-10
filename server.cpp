@@ -91,8 +91,8 @@ int main() {
     else {
         cout << "ESP32 has connected to computer!" << endl; //Server and client are succesfully connected. Time to test sending and recieving messages.
         connectFlag = true;
-        char settingAccess;
-
+        char commandMessage;
+        char clieMessage[256] = "";
 
         while (connectFlag) {
             cout << "Settings:" << endl;
@@ -103,10 +103,13 @@ int main() {
             cout << "(4): Time Module" << endl;
             cout << "(5): System Power" << endl;
 
-            cin >> settingAccess;
+            cin >> commandMessage;
             cout << endl;
+            //send(clientSocket, "Hello from Server", 256, 0);
+            //recv(clientSocket, clieMessage, 256, 0);
+            cout << clieMessage << endl;
 
-            switch (settingAccess) {
+            switch (commandMessage) {
                 case '0':
                     cout << "Exiting program!" << endl;
                     connectFlag = false;
@@ -154,36 +157,108 @@ int main() {
 }
 
 void temp_settings() {
+    char exitChar;
+
     cout << "Temperature:" << endl;
     cout << "Current Temperature" << endl;
     cout << "Temperature-Fan Condition" << endl;
     cout << "(0): Exit" << endl;
     cout << "(1): Change Temperature Settings" << endl;
+    while (true) {
+        cin >> exitChar;
+        if (exitChar == '0') {
+            break;
+        }
+        else if (exitChar == '1') {
+            //put temp change code here
+        }
+        else {
+            cout << "Invalid Entry" << endl;
+        }
+
+    }
+
 }
 void fan_settings() {
+    char exitChar;
     cout << "Fan:" << endl;
     cout << "Fan Speed" << endl;
     cout << "(0): Exit" << endl;
     cout << "(1): Change Fan Settings" << endl;
+    while (true) {
+        cin >> exitChar;
+        if (exitChar == '0') {
+            break;
+        }
+        else if (exitChar == '1') {
+            //put fan change code here
+        }
+        else {
+            cout << "Invalid Entry" << endl;
+        }
+
+    }
 }
 void time_settings() {
+    char exitChar;
     cout << "Time Settings:" << endl;
     cout << "(0): Exit" << endl;
     cout << "(1): Change Time Settings" << endl;
+    while (true) {
+        cin >> exitChar;
+        if (exitChar == '0') {
+            break;
+        }
+        else if (exitChar == '1') {
+            //put time change code here
+        }
+        else {
+            cout << "Invalid Entry" << endl;
+        }
+
+    }
 }
 void power_settings() {
+    char exitChar;
     cout << "Power Settings:" << endl;
     cout << "(0): Exit" << endl;
     cout << "(1): Turn On Recording System" << endl;
     cout << "(2): Turn On Fan" << endl;
+    while (true) {
+        cin >> exitChar;
+        if (exitChar == '0') {
+            break;
+        }
+        else if (exitChar == '1') {
+            //put power code here
+        }
+        else if (exitChar == '2') {
+            //put power code here
+        }
+        else {
+            cout << "Invalid Entry" << endl;
+        }
+
+    }
 
 }
 
 void system_data() {
+    char exitChar;
     cout << "System Settings:" << endl;
     cout << endl;
     cout << "Fan Speed:" << endl;
     cout << "Temperature:" << endl;
     cout << "Time:" << endl;
     cout << "(0): Exit" << endl;
+
+    while (true) {
+        cin >> exitChar;
+        if (exitChar == '0') {
+            break;
+        }
+        else {
+            cout << "Invalid Entry" << endl;
+        }
+    }
 }
