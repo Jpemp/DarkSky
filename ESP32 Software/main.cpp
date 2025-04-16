@@ -5,6 +5,7 @@
 #include <time.h>
 
 #include <string>
+#include <cstdlib>
 
 using namespace std;
 
@@ -22,20 +23,22 @@ WiFiClient client; //creates a client socket
 
 TaskHandle_t connection_task; //allows for more effecient code by doing socket checking and socket handling by core 0, while the rest of the code is handled by core 1. ESP32 is a dual core system
 
+static struct tm schedule[5] = {12, 23, 0, 1, 2}; //does this work????
 static int schedule_times[5] = {12, 23, 0, 1, 2};
 static int number_of_schedules = sizeof(schedule_times)/sizeof(schedule_times[0]);
 
-static double utc_offset = -6*3600; //time displayed as military time. adjusted from greenwich mean(utc) time to central time(Texas time). Maybe include a function where this is adjustable?
+static double utc_offset = -6*3600; //time displayed as military time. adjusted from greenwich mean time(utc) to central time(Texas time). Maybe include a function where this is adjustable?
 static double daylight_savings = 3600; //account for daylight savings. Figure out how to change this when daylight savings is over. Include a feature where its adjustable?
 
 static struct tm time_ESP32; //time struct to keep track of utc time on ESP32
 
 static float fanOnTemp = 90.0; //temperature at which the fan turns on at
+static float temp; //temperature read by sensor
 
 //names of pins
 const int tempSensor_input = 26; //A0 pin. Used for DS18B20 temp sensor data line input
 const int fanPWM = 21; //21 pin. Used to control fan speed with PWM signal
-const int fanSpeed_input= 25; //A1 pin. Used to monitor fan speed
+const int fanSpeed_input = 34; //A2 pin. Used to monitor fan speed
 const int fan_power = 27; //27 pin. Used for fan power signal to relay switch
 const int SQM_power = 15; //15 pin. Used for SQM power signal to relay switch
 const int miniPC_power = 32; //32 pin. Used for mini-PC power signal to relay switch
@@ -50,6 +53,7 @@ void WiFi_initializing(); //connects ESP32 to the NETGEAR WiFi
 void socket_connection(void*); //socket connection from ESP32 to a remote computer. Need to figure out how to connect between two networks.
 void communication();
 void control_menu(char*);
+void power_menu();
 void fanSpeedChange();
 void timeChange();
 void tempChange();
@@ -60,8 +64,20 @@ void fan_on();
 void record_off();
 void fan_off();
 
+//flags to keep fan and recording device on regardless of conditional statement
 static bool fanFlag = false;
 static bool recordFlag = false;
+//
+static bool fanOn = false;
+static bool recordOn = false;
+
+
+//fan speed modes
+static int offSpd = 0;
+static int lowSpd = 63;
+static int mediumSpd = 127; 
+static int highSpd = 191;
+static int maxSpd = 255;
 
 OneWire oneWire(tempSensor_input); //GPIO 26/A0 is input for digital temp reader. Argument tells OneWire(DS18B20) which pin the temp sensor data line is going to 
 DallasTemperature tempSensor(&oneWire); //passes GPIO address to DallasTemperature. Pointer parameter requires this. Address points to GPIO pin 34
@@ -77,7 +93,17 @@ void setup() {
   pinMode(SQM_power, OUTPUT); //Connect to SQM relay (GPIO 15/A8 input on ADC2)
   pinMode(miniPC_power, OUTPUT); //Connect to MiniPC relay (GPIO 32/A7 on ADC1/32KHz crystal)
   pinMode(dewHeater_power, OUTPUT); //Connect to dew heater (GPIO 14/A6 on ADC2)
+  pinMode(fanPWM, OUTPUT); //Connects fan PWM (fan speed output) to GPIO 21
+  pinMode(fanSpeed_input, INPUT); //Connects fan speed data read to A2/GPIO 34
 
+  //pin initialization
+  digitalWrite(LED_BUILTIN, 0); 
+  digitalWrite(fan_power, 1); 
+  digitalWrite(SQM_power, 1); 
+  digitalWrite(miniPC_power, 1); 
+  digitalWrite(dewHeater_power, 1); 
+  analogWrite(fanPWM, mediumSpd);
+  
   WiFi_initializing(); //Connects ESP32 to WiFi
 
   configTime(utc_offset, daylight_savings, ntpServer); //Configuring ESP32 time module to npt_server
@@ -121,18 +147,19 @@ void loop() { //NOTE: everything else besides the task is being ran on Core 1 I 
 
 // put function definitions here:
 void temp_check(void) {
-  float temp;
   tempSensor.requestTemperatures();
   temp = tempSensor.getTempFByIndex(0);
 
   Serial.print("Temperature: ");
   Serial.println(temp);
 
-  if(temp>=fanOnTemp){ //subject to change. This is to turn on fan if its too hot in the enclosure as determined by the DS18B20 sensor
+  if((temp>=fanOnTemp) || (fanFlag)){ //subject to change. This is to turn on fan if its too hot in the enclosure as determined by the DS18B20 sensor
     digitalWrite(fan_power, LOW);
+    fanOn = true;
   }
   else{
     digitalWrite(fan_power, HIGH);
+    fanOn = false;
   }
 }
 
@@ -148,16 +175,18 @@ void time_check(void){
   Serial.println(time_ESP32.tm_sec);
   
   for(i=0; i<number_of_schedules; i++){ //this method for turning on at a schedule can be improved
-    if((time_ESP32.tm_hour == schedule_times[i]) && (time_ESP32.tm_min < 30)){
+    if((time_ESP32.tm_hour == schedule_times[i]) && (time_ESP32.tm_min < 30) || (recordFlag)){
       digitalWrite(SQM_power, HIGH);
       digitalWrite(dewHeater_power, HIGH);
       digitalWrite(miniPC_power, HIGH);
+      recordOn = true;
       break;
     }
     else{
       digitalWrite(SQM_power, LOW);
       digitalWrite(dewHeater_power, LOW);
       digitalWrite(miniPC_power, LOW);
+      recordOn = false;
     }
   }
 }
@@ -196,7 +225,7 @@ void WiFi_initializing(void){ //ensure esp32 is a client/station mode
 }
 
 void socket_connection(void *taskParamaters){
-  bool functionCall = false;
+  //bool functionCall = false;
   int i = 0;
   while(true){ //infinite loop to run task in
     delay(1000); //1 second delay to prvent watchdog trigger
@@ -218,13 +247,14 @@ void socket_connection(void *taskParamaters){
     }
 
     else{
+      Serial.println("Communicating with Server...");
       communication();
     }
 
   }
 }
 
-void communication(){
+void communication(void){
   int i = 0;
   if (client.available()){
     while(client.available()){
@@ -234,7 +264,6 @@ void communication(){
     }
     Serial.println(serverCommand);
     control_menu(serverCommand);
-    client.write("Hello from Client");
     memset(serverCommand, 0, sizeof(serverCommand)); //clears the serverCommand character array for the next use
 
   }
@@ -244,52 +273,148 @@ void communication(){
 void control_menu(char* command){
   switch(command[0]){
     case '0':
-      temp_read();
-      time_read();
-      fan_read();
+      while(true){
+        if((client.read()=='0') || (!client.connected())){
+          break;
+        }
+        client.write(recordOn);
+        client.write(fanOn);
+        temp_read();
+        time_read();
+        fan_read();
+        delay(1000);
+      }
       break;
     case '1':
-      fan_read();
-      //view fan data
-      break;
-    case '2':
-      temp_read();
-      //view temp data
-      break;
-    case '3':
-      time_read();
-      //view time data
-      break;
-    case '4':
       fanSpeedChange();
       //change fan speed
       break;
-    case '5':
+    case '2':
       tempChange();
       //change temp condition
       break;
-    case '6':
+    case '3':
       timeChange();
       //change time schedule
       break;
-    case '7':
-      record_on();
-      //turn on recording system
-      break;
-    case '8':
-      fan_on();
-      //turn on fan
-      break;
-    case '9':
-      //turn off recording system
-      break;
-    case 'a':
-      //turn off fan
+    case '4':
+      power_menu();
+      //go to power system menu
       break;
     default:
-      Serial.println("Invalid Command");
+      Serial.println("Invalid Command. Please Try Again");
       break;
  
   }
 }
 
+void power_menu(void){
+  bool exitLoop = false;
+  char power_command;
+  while(!exitLoop){
+    power_command = client.read();
+    switch(power_command){
+      case '0':
+        exitLoop = true;
+        break;
+      case '1':
+        record_on();
+        break;
+      case '2':
+        record_off();
+        break;
+      case '3':
+        fan_on();
+        break;
+      case '4':
+        fan_off();
+        break;
+      default:
+        break;
+  }
+}
+}
+
+void temp_read(void){
+  //Serial.println(to_string(temp).c_str());
+  client.write(to_string(temp).c_str());
+}
+
+void time_read(void){
+  //Serial.println(asctime(&time_ESP32));
+  client.write(asctime(&time_ESP32));
+  
+}
+
+void fan_read(void){
+  //Serial.println(to_string(analogRead(fanSpeed_input)).c_str());
+  client.write(to_string(analogRead(fanSpeed_input)).c_str());
+} 
+
+void fanSpeedChange(void){
+  int i=0;  
+  serverCommand[0] = client.read();
+  switch(serverCommand[0]){
+    case '0':
+      analogWrite(fanPWM, offSpd);
+      break;
+    case '1':
+      analogWrite(fanPWM, lowSpd);
+      break;
+    case '2':
+      analogWrite(fanPWM, mediumSpd);
+      break;
+    case '3':
+      analogWrite(fanPWM, highSpd);
+      break;
+    case '4':
+      analogWrite(fanPWM, maxSpd);
+      break;
+    default:
+      Serial.println("Exiting Window");
+      break;
+  }
+  memset(serverCommand, 0, sizeof(serverCommand));
+}
+
+void timeChange(void){ //still needs to be done
+  char timeCommand;
+  timeCommand = client.read();
+  switch(timeCommand){
+    case '0':
+    case '1':
+    case '2':
+
+    default:
+      break;
+  }
+
+}
+
+void tempChange(void){
+  char tempChange[20];
+  int i=0;
+  while(client.available()){
+    tempChange[i]=client.read();
+    i++;
+  }
+  fanOnTemp = atof(tempChange);
+  Serial.println(fanOnTemp);
+  memset(tempChange, 0, sizeof(tempChange));
+}
+
+void record_on(void){
+  recordFlag = true;
+}
+
+void fan_on(void){
+  fanFlag = true;
+}
+
+void record_off(void){
+  recordFlag = false;
+}
+
+void fan_off(void){
+  fanFlag = false;
+}
