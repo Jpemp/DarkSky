@@ -3,19 +3,28 @@
 #include <iostream>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <thread>
+#include <atomic>
+#include <chrono>
 
 #pragma comment(lib, "Ws2_32.lib") //needs to be added or else socket programming won't work on Windows
 
 using namespace std;
 
+static int serverSocket;
+static int clientSocket;
+
 static bool connectFlag = false;
+atomic <bool> exitFlag = false;
 
 //function declarations
-void temp_settings();
-void fan_settings();
-void time_settings();
+void temp_change();
+void fan_change();
+void time_change();
 void power_settings();
 void system_data();
+void user_Input();
+void server_menu();
 
 int main() {
 
@@ -52,7 +61,7 @@ int main() {
     }
 
     //cout << "test 3" << endl;
-    int serverSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol); //creating the server socket
+    serverSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol); //creating the server socket
     if (serverSocket == INVALID_SOCKET) {
         cout << "Socket function failed: error " << endl;
         cout << WSAGetLastError() << endl;
@@ -80,7 +89,7 @@ int main() {
 
     //cout << "test 6" << endl;
     cout << "Listening for client socket..." << endl;
-    int clientSocket = accept(serverSocket, NULL, NULL); //connects a client socket to the server socket
+    clientSocket = accept(serverSocket, NULL, NULL); //connects a client socket to the server socket
     if (clientSocket == INVALID_SOCKET) {
         cout << "Couldn't accept a socket: error ";
         cout << WSAGetLastError() << endl;
@@ -90,65 +99,7 @@ int main() {
     }
     else {
         cout << "ESP32 has connected to computer!" << endl; //Server and client are succesfully connected. Time to test sending and recieving messages.
-        connectFlag = true;
-        char commandMessage;
-        char clieMessage[256] = "";
-
-        while (connectFlag) {
-            cout << "Settings:" << endl;
-            cout << "(0): Exit" << endl;
-            cout << "(1): System Data" << endl;
-            cout << "(2): Fan" << endl;
-            cout << "(3): Temperature Sensor" << endl;
-            cout << "(4): Time Module" << endl;
-            cout << "(5): System Power" << endl;
-
-            cin >> commandMessage;
-            cout << endl;
-            //send(clientSocket, "Hello from Server", 256, 0);
-            //recv(clientSocket, clieMessage, 256, 0);
-            cout << clieMessage << endl;
-
-            switch (commandMessage) {
-                case '0':
-                    cout << "Exiting program!" << endl;
-                    connectFlag = false;
-                    break;
-                case '1':
-                    system_data();
-                    break;
-                case '2':
-                    fan_settings();
-                    break;
-                case '3':
-                    temp_settings();
-                    break;
-                case '4':
-                    time_settings();
-                    break;
-                case '5':
-                    power_settings();
-                    break;
-                default:
-                    cout << "That was an invalid entry! Please try again." << endl;
-                    break;
-            }
-        }
-        /*//const char servMessage[256] = "Server Message";
-        char servMessage[256] = "Hello from Server";
-        char clieMessage[256] = "";
-            
-
-        while (connectFlag) {
-            
-            //cin >> servMessage;
-            send(clientSocket,servMessage, 256, 0);
-            recv(clientSocket, clieMessage, 256, 0);
-            connectFlag = false;
-
-        }
-        cout << clieMessage << endl;
-        */
+        server_menu();
     }
 
     closesocket(clientSocket);
@@ -156,109 +107,280 @@ int main() {
     return 0;
 }
 
-void temp_settings() {
-    char exitChar;
+void server_menu() {
+    connectFlag = true;
+    char commandMessage;
+    char clieMessage[256] = "";
 
-    cout << "Temperature:" << endl;
-    cout << "Current Temperature" << endl;
-    cout << "Temperature-Fan Condition" << endl;
+    //SIMPLIFY THIS WHERE THERE ISNT AS MANY MENUS. DATA VIEWING IN 2 3 AND 4 CAN BE CHANGED TO BE IN THE SAME WINDOW AS THE CHANGE CONDITION WINDOW
+
+
+    while (connectFlag) {
+        cout << "Settings:" << endl;
+        cout << endl;
+        cout << "(0): Exit" << endl;
+        cout << "(1): View System Data" << endl;
+        cout << "(2): Change Fan Speed" << endl;
+        cout << "(3): Change Temperautre Sensor" << endl;
+        cout << "(4): Change Time Schedule" << endl;
+        cout << "(5): View System Power" << endl;
+
+        cin >> commandMessage;
+        cout << endl;
+        //send(clientSocket, "Hello from Server", 256, 0);
+        //recv(clientSocket, clieMessage, 256, 0);
+        //cout << clieMessage << endl;
+
+        switch (commandMessage) {
+        case '0':
+            cout << "Exiting program!" << endl;
+            connectFlag = false;
+            break;
+        case '1':
+            send(clientSocket, "0", 256, 0);
+            system_data();
+            break;
+        case '2':
+            send(clientSocket, "1", 256, 0);
+            fan_change();
+            break;
+        case '3':
+            send(clientSocket, "2", 256, 0);
+            temp_change();
+            break;
+        case '4':
+            send(clientSocket, "3", 256, 0);
+            time_change();
+            break;
+        case '5':
+            power_settings();
+            break;
+        default:
+            cout << "That was an invalid entry! Please try again." << endl;
+            break;
+        }
+    }
+}
+
+void temp_change() {
+    char exitChar;
+    string tempChange;
+    char tempCondition[20];
+
+    while (true) {
+        cout << "Temperature Change:" << endl;
+        cout << "(0): Exit" << endl;
+        cout << "(1): Change Temperature" << endl;
+        cout << "Temperature Condition: " << endl;
+        recv(clientSocket, tempCondition, 256, 0);
+        cout << tempCondition << endl;
+        cin >> exitChar;
+        if (exitChar == '0') {
+            break;
+        }
+        else if (exitChar == '1') {
+            cout << "Enter New Temperature Condition, or cancel(c)" << endl;
+            cin >> tempChange;
+            if (tempChange == "c") {
+                continue;
+            }
+            else {
+                send(clientSocket, tempChange.c_str(), 256, 0);
+            }
+        }
+        else {
+            cout << "Invalid Entry. Please Try Again" << endl;
+        }
+    }
+
+
+
+
+
+}
+
+void fan_change() {
+    char exitChar;
+    char fanSpeed;
+    cout << "Fan Change:" << endl;
+    cout << "Fan Speed: " << endl;
     cout << "(0): Exit" << endl;
-    cout << "(1): Change Temperature Settings" << endl;
+    cout << "(1): Change Fan Speed" << endl;
+    cout << endl;
     while (true) {
         cin >> exitChar;
         if (exitChar == '0') {
             break;
         }
         else if (exitChar == '1') {
-            //put temp change code here
+            cout << "(0): Off" << endl;
+            cout << "(1): Low Speed" << endl;
+            cout << "(2): Medium Speed" << endl;
+            cout << "(3): High Speed" << endl;
+            cout << "(4): Max Speed" << endl;
+            cout << "Any Other Key: Cancel" << endl;
+            cin >> fanSpeed;
+            switch (fanSpeed) {
+                case '0':
+                    send(clientSocket, "0", 256, 0);
+                    break;
+                case '1':
+                    send(clientSocket, "1", 256, 0);
+                    break;
+                case '2':
+                    send(clientSocket, "2", 256, 0);
+                    break;
+                case '3':
+                    send(clientSocket, "3", 256, 0);
+                    break;
+                case '4':
+                    send(clientSocket, "4", 256, 0);
+                    break;
+                default:
+                    break;
+            }
         }
         else {
             cout << "Invalid Entry" << endl;
         }
 
     }
-
 }
-void fan_settings() {
-    char exitChar;
-    cout << "Fan:" << endl;
-    cout << "Fan Speed" << endl;
-    cout << "(0): Exit" << endl;
-    cout << "(1): Change Fan Settings" << endl;
-    while (true) {
-        cin >> exitChar;
-        if (exitChar == '0') {
-            break;
-        }
-        else if (exitChar == '1') {
-            //put fan change code here
-        }
-        else {
-            cout << "Invalid Entry" << endl;
-        }
 
-    }
-}
-void time_settings() {
+void time_change() { //still needs to be done
     char exitChar;
+    char timeCommand;
     cout << "Time Settings:" << endl;
     cout << "(0): Exit" << endl;
-    cout << "(1): Change Time Settings" << endl;
+    cout << "(1): Change Time Schedule" << endl;
+    cout << endl;
     while (true) {
         cin >> exitChar;
         if (exitChar == '0') {
             break;
         }
         else if (exitChar == '1') {
-            //put time change code here
+            cout << "What would you like to do to the time schedule?" << endl;
+            cout << "(0): Delete a time" << endl;
+            cout << "(1): Add a new time" << endl;
+            cout << "Any Other Key: Cancel" << endl;
+            cin >> timeCommand;
+            if (timeCommand == '0') {
+                //code here
+            }
+            else if (timeCommand == '1') {
+                //code here
+            }
+            else {
+                continue;
+            }
         }
         else {
-            cout << "Invalid Entry" << endl;
+            cout << "Invalid Entry. Please Try Again" << endl;
         }
 
     }
 }
+
 void power_settings() {
+    bool loopBreak = false;
     char exitChar;
     cout << "Power Settings:" << endl;
     cout << "(0): Exit" << endl;
     cout << "(1): Turn On Recording System" << endl;
-    cout << "(2): Turn On Fan" << endl;
-    while (true) {
-        cin >> exitChar;
-        if (exitChar == '0') {
-            break;
+    cout << "(2): Turn Off Recording System" << endl;
+    cout << "(3): Turn On Fan" << endl;
+    cout << "(4): Turn Off Fan" << endl;
+    
+    while (!loopBreak) {
+        
+        cin >> exitChar; 
+        switch (exitChar) {
+            case '0':
+                send(clientSocket, "0", 256, 0);
+                loopBreak = true;
+                break;
+            case '1':
+                send(clientSocket, "1", 256, 0);
+                break;
+            case '2':
+                send(clientSocket, "2", 256, 0);
+                break;
+            case '3':
+                send(clientSocket, "3", 256, 0);
+                break;
+            case '4':
+                send(clientSocket, "4", 256, 0);
+                break;
+            default:
+                cout << "Invalid Entry. Please Try Again." << endl;
+                break;
         }
-        else if (exitChar == '1') {
-            //put power code here
-        }
-        else if (exitChar == '2') {
-            //put power code here
-        }
-        else {
-            cout << "Invalid Entry" << endl;
-        }
-
     }
-
 }
 
 void system_data() {
-    char exitChar;
+    thread t1(user_Input);
+    char tempRead[256] = "";
+    char timeRead[256] = "";
+    char fanRead[256] = "";
+    char deviceOn[1];
+    char fanOn[1];
     cout << "System Settings:" << endl;
-    cout << endl;
-    cout << "Fan Speed:" << endl;
-    cout << "Temperature:" << endl;
-    cout << "Time:" << endl;
     cout << "(0): Exit" << endl;
+    cout << endl;
 
-    while (true) {
-        cin >> exitChar;
-        if (exitChar == '0') {
-            break;
+    chrono::seconds(5);
+
+    while (!exitFlag) {
+        recv(clientSocket, deviceOn, 256, 0);
+        cout << "Record: ";
+        if (deviceOn[0] == '1') {
+            cout << "On" << endl;
         }
         else {
-            cout << "Invalid Entry" << endl;
+            cout << "Off" << endl;
         }
+        chrono::seconds(1);
+        recv(clientSocket, fanOn, 256, 0);
+        cout << "Fan: ";
+        if (fanOn[0] == '1') {
+            cout << "On" << endl;
+        }
+        else {
+            cout << "Off" << endl;
+        }
+        chrono::seconds(1);
+        recv(clientSocket, tempRead, 256, 0);
+        cout << "Temperature: ";
+        cout << tempRead << endl;
+        chrono::seconds(1);
+        recv(clientSocket, timeRead, 256, 0);
+        cout << "Time: ";
+        cout << timeRead << endl;
+        chrono::seconds(1);
+        recv(clientSocket, fanRead, 256, 0);
+        cout << "Fan Speed: ";
+        cout << fanRead << endl;
+        chrono::seconds(1);
+
     }
+    //cout << "Exit Loop" << endl;
+    exitFlag = false;
+    t1.join();
+    //cout << "Thread Joined Back" << endl;
+    cout << endl;
+
 }
+
+void user_Input(void) {
+    char exitChar;
+    do{
+        cin >> exitChar;
+    } while (exitChar != '0');
+    cout << "Exit thread loop" << endl;
+    exitFlag = true;
+    send(clientSocket, "0", 256, 0);
+
+}
+
