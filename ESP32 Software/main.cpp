@@ -450,6 +450,15 @@ void time_add(void){
     i++;
   }
   
+  char *token_string = strtok(serverCommand, ":");
+  schedule_times[atoi(timeCommand)].tm_hour = token_string; //change this to be adjusted for the element size
+  
+  token_string = strtok(NULL, ":"); 
+  schedule_times[atoi(timeCommand)].tm_min = token_string;
+  
+  token_string = strtok(NULL, ":");
+  schedule_times[atoi(timeCommand)].tm_sec = token_string;
+  
   memset(serverCommand, 0, sizeof(serverCommand));
   timeMenu();
 }
@@ -484,9 +493,13 @@ void time_change(void){
   }
 
   char *token_string = strtok(serverCommand, ":");
-  schedule_times[atoi(timeCommand)].tm_hour;
-  schedule_times[atoi(timeCommand)].tm_min;
-  schedule_times[atoi(timeCommand)].tm_sec;
+  schedule_times[atoi(timeCommand)].tm_hour = token_string;
+  
+  token_string = strtok(NULL, ":"); 
+  schedule_times[atoi(timeCommand)].tm_min = token_string;
+  
+  token_string = strtok(NULL, ":");
+  schedule_times[atoi(timeCommand)].tm_sec = token_string;
   
   memset(serverCommand, 0, sizeof(serverCommand));
   timeMenu();
