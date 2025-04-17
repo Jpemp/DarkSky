@@ -107,10 +107,10 @@ void setup() {
 
   //pin initialization
   digitalWrite(LED_BUILTIN, 0); 
-  digitalWrite(fan_power, 1); 
-  digitalWrite(SQM_power, 1); 
-  digitalWrite(miniPC_power, 1); 
-  digitalWrite(dewHeater_power, 1); 
+  digitalWrite(fan_power, 0); 
+  digitalWrite(SQM_power, 0); 
+  digitalWrite(miniPC_power, 0); 
+  digitalWrite(dewHeater_power, 0); 
   analogWrite(fanPWM, mediumSpd);
   
   WiFi_initializing(); //Connects ESP32 to WiFi
@@ -187,11 +187,11 @@ void temp_check(void) {
   Serial.println(temp);
 
   if((temp>=fanOnTemp) || (fanFlag)){ //subject to change. This is to turn on fan if its too hot in the enclosure as determined by the DS18B20 sensor
-    digitalWrite(fan_power, LOW);
+    digitalWrite(fan_power, HIGH);
     fanOn = true;
   }
   else{
-    digitalWrite(fan_power, HIGH);
+    digitalWrite(fan_power, LOW);
     fanOn = false;
   }
 }
@@ -208,10 +208,10 @@ void time_check(void){
   Serial.println(time_ESP32.tm_sec);
   
   for(i=0; i<SCHEDULE_SIZE; i++){ //this method for turning on at a schedule can be improved
-    if(((time_ESP32.tm_hour == schedule_times[i]) && (time_ESP32.tm_min < onTime)) || (recordFlag)){ //change this to account for minutes
-      digitalWrite(SQM_power, LOW);
-      digitalWrite(dewHeater_power, LOW);
-      digitalWrite(miniPC_power, LOW);
+    if(((time_ESP32.tm_hour == schedule_times[i]) && (time_ESP32.tm_min < onTime)) || (recordFlag)){ //change this to account for minutes spilling over
+      digitalWrite(SQM_power, HIGH);
+      digitalWrite(dewHeater_power, HIGH);
+      digitalWrite(miniPC_power, HIGH);
       recordOn = true;
       break;
     }
