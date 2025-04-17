@@ -28,7 +28,7 @@ TaskHandle_t connection_task; //allows for more effecient code by doing socket c
 
 static struct tm schedule_times[SCHEDULE_SIZE];
 static int number_of_schedules = sizeof(schedule_times)/sizeof(schedule_times[0]);
-static int onTime = 15;
+static int onTimeMin = 15;
 
 static double utc_offset = -6*3600; //time displayed as military time. adjusted from greenwich mean time(utc) to central time(Texas time). Maybe include a function where this is adjustable?
 static double daylight_savings = 3600; //account for daylight savings. Figure out how to change this when daylight savings is over. Include a feature where its adjustable?
@@ -207,8 +207,8 @@ void time_check(void){
   Serial.print(":");
   Serial.println(time_ESP32.tm_sec);
   
-  for(i=0; i<number_of_schedules; i++){ //this method for turning on at a schedule can be improved
-    if((time_ESP32.tm_hour == schedule_times[i]) && (time_ESP32.tm_min < onTime) || (recordFlag)){
+  for(i=0; i<SCHEDULE_SIZE; i++){ //this method for turning on at a schedule can be improved
+    if(((time_ESP32.tm_hour == schedule_times[i]) && (time_ESP32.tm_min < onTime)) || (recordFlag)){ //change this to account for minutes
       digitalWrite(SQM_power, LOW);
       digitalWrite(dewHeater_power, LOW);
       digitalWrite(miniPC_power, LOW);
