@@ -7,6 +7,9 @@
 #include <string>
 #include <cstdlib>
 
+#define SCHEDULE_SIZE 5
+
+
 using namespace std;
 
 const char *wifi_ID = "GuysHouse";
@@ -23,9 +26,9 @@ WiFiClient client; //creates a client socket
 
 TaskHandle_t connection_task; //allows for more effecient code by doing socket checking and socket handling by core 0, while the rest of the code is handled by core 1. ESP32 is a dual core system
 
-static struct tm schedule[5] = {12, 23, 0, 1, 2}; //does this work????
-static int schedule_times[5] = {12, 23, 0, 1, 2};
+static struct tm schedule_times[SCHEDULE_SIZE];
 static int number_of_schedules = sizeof(schedule_times)/sizeof(schedule_times[0]);
+static int onTime = 15;
 
 static double utc_offset = -6*3600; //time displayed as military time. adjusted from greenwich mean time(utc) to central time(Texas time). Maybe include a function where this is adjustable?
 static double daylight_savings = 3600; //account for daylight savings. Figure out how to change this when daylight savings is over. Include a feature where its adjustable?
@@ -49,6 +52,7 @@ const int dewHeater_power = 14; //14 pin. Used for dew heater power signal to re
 void temp_read(); //record internal temperature of enclosure using DS18B20 temp sensor.
 void time_read(); //take time from NTP server.
 void fan_read(); //reads the speed of the fan
+void power_boolean_read();
 void WiFi_initializing(); //connects ESP32 to the NETGEAR WiFi
 void socket_connection(void*); //socket connection from ESP32 to a remote computer. Need to figure out how to connect between two networks.
 void communication();
@@ -63,6 +67,10 @@ void record_on();
 void fan_on();
 void record_off();
 void fan_off();
+void time_add();
+void time_remove();
+void time_change();
+void tm_initialization();
 
 //flags to keep fan and recording device on regardless of conditional statement
 static bool fanFlag = false;
@@ -107,6 +115,8 @@ void setup() {
   WiFi_initializing(); //Connects ESP32 to WiFi
 
   configTime(utc_offset, daylight_savings, ntpServer); //Configuring ESP32 time module to npt_server
+
+  tm_initialization();
   
   tempSensor.begin(); //intializes the DS18B20 sensor
 
@@ -146,6 +156,28 @@ void loop() { //NOTE: everything else besides the task is being ran on Core 1 I 
 }
 
 // put function definitions here:
+void tm_initialization(void){
+  schedule_times[0].tm_hour = 22;
+  schedule_times[0].tm_min = 0;
+  schedule_times[0].tm_sec = 0;
+
+  schedule_times[1].tm_hour = 23;
+  schedule_times[1].tm_min = 0;
+  schedule_times[1].tm_sec = 0;
+
+  schedule_times[2].tm_hour = 0;
+  schedule_times[2].tm_min = 0;
+  schedule_times[2].tm_sec = 0;
+
+  schedule_times[3].tm_hour = 1;
+  schedule_times[3].tm_min = 0;
+  schedule_times[3].tm_sec = 0;
+
+  schedule_times[4].tm_hour = 2;
+  schedule_times[4].tm_min = 0;
+  schedule_times[4].tm_sec = 0;
+}
+
 void temp_check(void) {
   tempSensor.requestTemperatures();
   temp = tempSensor.getTempFByIndex(0);
@@ -175,10 +207,10 @@ void time_check(void){
   Serial.println(time_ESP32.tm_sec);
   
   for(i=0; i<number_of_schedules; i++){ //this method for turning on at a schedule can be improved
-    if((time_ESP32.tm_hour == schedule_times[i]) && (time_ESP32.tm_min < 30) || (recordFlag)){
-      digitalWrite(SQM_power, HIGH);
-      digitalWrite(dewHeater_power, HIGH);
-      digitalWrite(miniPC_power, HIGH);
+    if((time_ESP32.tm_hour == schedule_times[i]) && (time_ESP32.tm_min < onTime) || (recordFlag)){
+      digitalWrite(SQM_power, LOW);
+      digitalWrite(dewHeater_power, LOW);
+      digitalWrite(miniPC_power, LOW);
       recordOn = true;
       break;
     }
@@ -271,14 +303,14 @@ void communication(void){
 }
 
 void control_menu(char* command){
+  Serial.println("control_menu called");
   switch(command[0]){
     case '0':
       while(true){
         if((client.read()=='0') || (!client.connected())){
           break;
         }
-        client.write(recordOn);
-        client.write(fanOn);
+        power_boolean_read();
         temp_read();
         time_read();
         fan_read();
@@ -309,6 +341,7 @@ void control_menu(char* command){
 }
 
 void power_menu(void){
+  Serial.println("power_menu called");
   bool exitLoop = false;
   char power_command;
   while(!exitLoop){
@@ -336,62 +369,134 @@ void power_menu(void){
 }
 
 void temp_read(void){
+  Serial.println("temp_read called");
   //Serial.println(to_string(temp).c_str());
   client.write(to_string(temp).c_str());
 }
 
 void time_read(void){
+  Serial.println("time_read called");
   //Serial.println(asctime(&time_ESP32));
   client.write(asctime(&time_ESP32));
   
 }
 
 void fan_read(void){
+  Serial.println("fan_read called");
   //Serial.println(to_string(analogRead(fanSpeed_input)).c_str());
   client.write(to_string(analogRead(fanSpeed_input)).c_str());
 } 
 
+void power_boolean_read(void){
+  Serial.println("power_boolean_read called");
+  client.write(recordOn);
+  client.write(fanOn);
+}
+
 void fanSpeedChange(void){
-  int i=0;  
-  serverCommand[0] = client.read();
-  switch(serverCommand[0]){
-    case '0':
-      analogWrite(fanPWM, offSpd);
-      break;
-    case '1':
-      analogWrite(fanPWM, lowSpd);
-      break;
-    case '2':
-      analogWrite(fanPWM, mediumSpd);
-      break;
-    case '3':
-      analogWrite(fanPWM, highSpd);
-      break;
-    case '4':
-      analogWrite(fanPWM, maxSpd);
-      break;
-    default:
-      Serial.println("Exiting Window");
-      break;
+  Serial.println("fanSpeedChange called");
+  int i=0;
+  bool exitFlag = false;
+  char speedChange;
+  while (!exitFlag){
+    speedChange = client.read();
+    switch(speedChange){
+      case '0':
+        analogWrite(fanPWM, offSpd);
+        break;
+      case '1':
+        analogWrite(fanPWM, lowSpd);
+        break;
+      case '2':
+        analogWrite(fanPWM, mediumSpd);
+        break;
+      case '3':
+        analogWrite(fanPWM, highSpd);
+        break;
+      case '4':
+        analogWrite(fanPWM, maxSpd);
+        break;
+      default:
+        boolFlag = true;
+        Serial.println("Exiting Window");
+        break;
   }
-  memset(serverCommand, 0, sizeof(serverCommand));
+  //memset(serverCommand, 0, sizeof(serverCommand));
 }
 
 void timeChange(void){ //still needs to be done
+  Serial.println("timeChange called");
+  char timeCommand;
+  timeCommand = client.read();
+  switch(timeCommand){
+    case '0':
+      time_add();
+    case '1':
+      time_remove();
+    case '2':
+      time_change();
+    default:
+      break;
+  }
+
+}
+
+void time_add(void){
+  Serial.println("time_add called");
   char timeCommand;
   timeCommand = client.read();
   switch(timeCommand){
     case '0':
     case '1':
     case '2':
-
+    case '3':
+    case '4':
     default:
+      timeChange();
       break;
   }
+}
 
+void time_remove(void){
+  Serial.println("time_remove called");
+  char timeCommand;
+  timeCommand = client.read();
+  switch(timeCommand){
+    case '0':
+      
+      break;
+    case '1':
+      break;
+    case '2':
+      break;
+    case '3':
+      break;
+    case '4':
+      break;
+    default:
+      timeChange();
+      break;
+  }
+}
+
+void time_change(void){
+  Serial.println("time_change called");
+  char timeCommand;
+  timeCommand = client.read();
+  switch(timeCommand){
+    case '0':
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    default:
+      timeChange();
+      break;
+  }
 }
 
 void tempChange(void){
+  Serial.println("tempChange called");
   char tempChange[20];
   int i=0;
   while(client.available()){
@@ -400,21 +505,25 @@ void tempChange(void){
   }
   fanOnTemp = atof(tempChange);
   Serial.println(fanOnTemp);
-  memset(tempChange, 0, sizeof(tempChange));
+  //memset(tempChange, 0, sizeof(tempChange));
 }
 
 void record_on(void){
+  Serial.println("record_on called");
   recordFlag = true;
 }
 
 void fan_on(void){
+  Serial.println("fan_on called");
   fanFlag = true;
 }
 
 void record_off(void){
+  Serial.println("record_off called");
   recordFlag = false;
 }
 
 void fan_off(void){
+  Serial.println("fan_off called");
   fanFlag = false;
 }
