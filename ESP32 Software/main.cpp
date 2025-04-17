@@ -444,27 +444,33 @@ void timeMenu(void){ //still needs to be done
 
 void time_add(void){
   Serial.println("time_add called");
-  char timeCommand;
-  timeCommand = client.read();
-  switch(timeCommand){
-    case '0':
-    case '1':
-    case '2':
-    case '3':
-    case '4':
-    default:
-      timeChange();
-      break;
+  int i = 0;
+  while(client.available()){
+    serverCommand = client.read();
+    i++;
   }
+  
   memset(serverCommand, 0, sizeof(serverCommand));
+  timeMenu();
 }
 
 void time_remove(void){
   Serial.println("time_remove called");
   char timeCommand;
   timeCommand = client.read();
-  time
+
+  if(){
+    remove_array_entry(atoi(timeCommand));
+    client.write("Entry ");
+    client.write(timeCommand);
+    client.write(" was successfully removed!");
+  }
+  else{
+    client.write("Entry does not exist! Please try again!");
+  }
+  
   memset(serverCommand, 0, sizeof(serverCommand));
+  timeMenu();
 }
 
 void time_change(void){
@@ -477,6 +483,7 @@ void time_change(void){
   
   }
   memset(serverCommand, 0, sizeof(serverCommand));
+  timeMenu();
 }
 
 void remove_array_entry(int element){
