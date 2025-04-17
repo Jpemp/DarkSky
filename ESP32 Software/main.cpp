@@ -478,10 +478,16 @@ void time_change(void){
   char timeCommand;
   int i = 0;
   timeCommand = client.read();
-  
   while(client.available()){
-  
+    serverCommand[i] = client.read();
+    i++;
   }
+
+  char *token_string = strtok(serverCommand, ":");
+  schedule_times[atoi(timeCommand)].tm_hour;
+  schedule_times[atoi(timeCommand)].tm_min;
+  schedule_times[atoi(timeCommand)].tm_sec;
+  
   memset(serverCommand, 0, sizeof(serverCommand));
   timeMenu();
 }
