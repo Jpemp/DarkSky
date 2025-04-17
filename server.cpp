@@ -253,7 +253,8 @@ void time_change() { //still needs to be done
     cout << "Time Settings:" << endl;
     cout << "(0): Exit" << endl;
     cout << "(1): Change Time Schedule" << endl;
-    cout << endl;
+    cout << "Current Time Schedule: " << endl;
+    //insert schedule display here
     while (true) {
         cin >> exitChar;
         if (exitChar == '0') {
@@ -263,13 +264,17 @@ void time_change() { //still needs to be done
             cout << "What would you like to do to the time schedule?" << endl;
             cout << "(0): Delete a time" << endl;
             cout << "(1): Add a new time" << endl;
+            cout << "(2): Change a time in the system" << endl;
             cout << "Any Other Key: Cancel" << endl;
             cin >> timeCommand;
             if (timeCommand == '0') {
-                //code here
+                cout << "Which schedule would you like to delete?" << endl;
             }
             else if (timeCommand == '1') {
-                //code here
+                cout << "Enter a new time to add: " << endl; 
+            }
+            else if (timeCommand == '2'){
+                cout << "Which schedule would you like to change?" << endl;
             }
             else {
                 continue;
@@ -334,7 +339,7 @@ void system_data() {
 
     while (!exitFlag) {
         recv(clientSocket, deviceOn, 256, 0);
-        cout << "Record: ";
+        cout << "Recording Device: ";
         if (deviceOn[0] == '1') {
             cout << "On" << endl;
         }
