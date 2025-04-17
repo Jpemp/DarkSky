@@ -52,7 +52,7 @@ const int dewHeater_power = 14; //14 pin. Used for dew heater power signal to re
 void temp_read(); //record internal temperature of enclosure using DS18B20 temp sensor.
 void time_read(); //take time from NTP server.
 void fan_read(); //reads the speed of the fan
-void power_boolean_read();
+void power_boolean_read(); //reads if the power is supplied to recording device and/or fan
 void WiFi_initializing(); //connects ESP32 to the NETGEAR WiFi
 void socket_connection(void*); //socket connection from ESP32 to a remote computer. Need to figure out how to connect between two networks.
 void communication();
@@ -70,6 +70,7 @@ void fan_off();
 void time_add();
 void time_remove();
 void time_change();
+void remove_array_entry(int);
 void tm_initialization();
 
 //flags to keep fan and recording device on regardless of conditional statement
@@ -455,6 +456,7 @@ void time_add(void){
       timeChange();
       break;
   }
+  memset(serverCommand, 0, sizeof(serverCommand));
 }
 
 void time_remove(void){
@@ -477,6 +479,7 @@ void time_remove(void){
       timeChange();
       break;
   }
+  memset(serverCommand, 0, sizeof(serverCommand));
 }
 
 void time_change(void){
@@ -492,6 +495,15 @@ void time_change(void){
     default:
       timeChange();
       break;
+  }
+  memset(serverCommand, 0, sizeof(serverCommand));
+}
+
+void remove_array_entry(int element){
+  Serial.println("remove_array_entry is called");
+  int arraySize = sizeof(schedule_times)/sizeof(schedule_times[0]);
+  for(int i=element; i<arraySize; i++){
+    schedule_times[i] = schedule_times[i+1];
   }
 }
 
