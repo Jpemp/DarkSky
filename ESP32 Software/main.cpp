@@ -59,7 +59,7 @@ void communication();
 void control_menu(char*);
 void power_menu();
 void fanSpeedChange();
-void timeChange();
+void timeMenu();
 void tempChange();
 void time_check(); //turn on recording device at the scheduled time
 void temp_check(); //turn on fan if it is too hot
@@ -425,7 +425,7 @@ void fanSpeedChange(void){
   //memset(serverCommand, 0, sizeof(serverCommand));
 }
 
-void timeChange(void){ //still needs to be done
+void timeMenu(void){ //still needs to be done
   Serial.println("timeChange called");
   char timeCommand;
   timeCommand = client.read();
@@ -463,38 +463,18 @@ void time_remove(void){
   Serial.println("time_remove called");
   char timeCommand;
   timeCommand = client.read();
-  switch(timeCommand){
-    case '0':
-      
-      break;
-    case '1':
-      break;
-    case '2':
-      break;
-    case '3':
-      break;
-    case '4':
-      break;
-    default:
-      timeChange();
-      break;
-  }
+  time
   memset(serverCommand, 0, sizeof(serverCommand));
 }
 
 void time_change(void){
   Serial.println("time_change called");
   char timeCommand;
+  int i = 0;
   timeCommand = client.read();
-  switch(timeCommand){
-    case '0':
-    case '1':
-    case '2':
-    case '3':
-    case '4':
-    default:
-      timeChange();
-      break;
+  
+  while(client.available()){
+  
   }
   memset(serverCommand, 0, sizeof(serverCommand));
 }
