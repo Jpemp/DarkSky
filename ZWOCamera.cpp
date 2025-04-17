@@ -11,18 +11,23 @@ using namespace std;
 int main()
 {
 	int cameraCount;
-	ASI_CAMERA_INFO* ZWOCamera = (ASI_CAMERA_INFO*)malloc(sizeof(ASI_CAMERA_INFO*));
+	int* controlNum;
+	ASI_CAMERA_INFO* ZWOCamera = (ASI_CAMERA_INFO*)malloc(sizeof(ASI_CAMERA_INFO));
 	cameraCount = ASIGetNumOfConnectedCameras();
 	cout << "Number of cameras connected: ";
 	cout << cameraCount << endl;
 	ASIGetCameraProperty(ZWOCamera,0);
-	//ASIOpenCamera(ZWOCamera->CameraID); //figure out camera ID
-	//ASIInitCamera(ZWOCamera->CameraID);
+	ASIOpenCamera(ZWOCamera->CameraID); 
+	ASIInitCamera(ZWOCamera->CameraID);
 
-	int x = 0;
-	if (x == 1) {
-		ASICloseCamera(ZWOCamera->CameraID);
-	}
+	ASIGetNumOfControls(ZWOCamera->CameraID, controlNum);
+
+	cout << controlNum << endl;
+
+
+
+	ASICloseCamera(ZWOCamera->CameraID);
+	
 
 	return 0;
 }
