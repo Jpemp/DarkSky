@@ -32,8 +32,8 @@ int main() {
 
     //information to be used for socket IP address
     struct addrinfo server; //server creates a struct that contains server host information
-    struct addrinfo *result = NULL; //pointer which will store host info through a linked list
-    
+    struct addrinfo* result = NULL; //pointer which will store host info through a linked list
+
     memset(&server, 0, sizeof(server)); //initializes the server struct with zeroes in every struct member so that unused members don't confuse and mess up the program further down the line. This was making the getaddrinfo function mess up
 
     server.ai_family = AF_INET; //specify to use the IPv4 address family
@@ -44,7 +44,7 @@ int main() {
 
     //cout << "test 1" << endl;
     WSADATA wsaData; //creates a structre to put the Windows socket data in
-    errorFlag = WSAStartup(MAKEWORD(2,2), &wsaData); //allows Winsock socket programming to work on Windows by initializing WS2_32.dll. MAKEWORD tells Windows to use Winsock version 2.2 and stores the Windows socket data in wsaData
+    errorFlag = WSAStartup(MAKEWORD(2, 2), &wsaData); //allows Winsock socket programming to work on Windows by initializing WS2_32.dll. MAKEWORD tells Windows to use Winsock version 2.2 and stores the Windows socket data in wsaData
     if (errorFlag != 0) {
         cout << "Couldn't start up windows sockets: error ";
         cout << errorFlag << endl;
@@ -71,16 +71,16 @@ int main() {
 
     //cout << "test 4" << endl;
     errorFlag = bind(serverSocket, result->ai_addr, result->ai_addrlen); //binds the server socket
-    if(errorFlag!=0) {
+    if (errorFlag != 0) {
         cout << "Couldn't bind a socket: error ";
         cout << errorFlag << endl;
         WSACleanup();
         return -1;
-     }
+    }
 
     //cout << "test 5" << endl;
     errorFlag = listen(serverSocket, 10); //enable the server socket to listen (wait) for the client socket
-    if (errorFlag!=0){
+    if (errorFlag != 0) {
         cout << "Socket listening failed: error ";
         cout << errorFlag << endl;
         WSACleanup();
@@ -121,12 +121,11 @@ void server_menu() {
         cout << "(0): Exit" << endl;
         cout << "(1): View System Data" << endl;
         cout << "(2): Change Fan Speed" << endl;
-        cout << "(3): Change Temperautre Sensor" << endl;
+        cout << "(3): Change Temperature Condition" << endl;
         cout << "(4): Change Time Schedule" << endl;
         cout << "(5): View System Power" << endl;
 
         cin >> commandMessage;
-        cout << endl;
         //send(clientSocket, "Hello from Server", 256, 0);
         //recv(clientSocket, clieMessage, 256, 0);
         //cout << clieMessage << endl;
@@ -153,6 +152,7 @@ void server_menu() {
             time_change();
             break;
         case '5':
+            send(clientSocket, "4", 256, 0);
             power_settings();
             break;
         default:
@@ -164,63 +164,66 @@ void server_menu() {
 
 void temp_change() {
     char exitChar;
-    string tempChange;
-    char tempCondition[20];
+    char tempChange[256] = "";
+    char tempCondition[256] = "";
+
+    recv(clientSocket, tempCondition, 256, 0);
 
     while (true) {
         cout << "Temperature Change:" << endl;
         cout << "(0): Exit" << endl;
         cout << "(1): Change Temperature" << endl;
-        cout << "Temperature Condition: " << endl;
-        recv(clientSocket, tempCondition, 256, 0);
+        cout << "Temperature Condition: ";
         cout << tempCondition << endl;
         cin >> exitChar;
         if (exitChar == '0') {
             break;
         }
         else if (exitChar == '1') {
-            cout << "Enter New Temperature Condition, or cancel(c)" << endl;
+            send(clientSocket, "1", 256, 0);
+            cout << "Enter New Temperature Condition" << endl;
             cin >> tempChange;
-            if (tempChange == "c") {
-                continue;
-            }
-            else {
-                send(clientSocket, tempChange.c_str(), 256, 0);
-            }
+
+            send(clientSocket, tempChange, 256, 0);
+            recv(clientSocket, tempCondition, 256, 0);
+            
         }
         else {
             cout << "Invalid Entry. Please Try Again" << endl;
         }
     }
-
-
-
-
-
+    memset(tempCondition, 0, sizeof(tempCondition));
+    memset(tempChange, 0, sizeof(tempChange));
 }
 
 void fan_change() {
     char exitChar;
     char fanSpeed;
-    cout << "Fan Change:" << endl;
-    cout << "Fan Speed: " << endl;
-    cout << "(0): Exit" << endl;
-    cout << "(1): Change Fan Speed" << endl;
-    cout << endl;
-    while (true) {
+    bool exitFan = false;
+    bool exitMenu = false;
+
+    while(!exitMenu){
+        cout << "Fan Change:" << endl;
+        cout << "Fan Speed: " << endl;
+        cout << "(0): Exit" << endl;
+        cout << "(1): Change Fan Speed" << endl;
+        cout << endl;
+       
         cin >> exitChar;
         if (exitChar == '0') {
+            exitMenu = true;
             break;
         }
         else if (exitChar == '1') {
-            cout << "(0): Off" << endl;
-            cout << "(1): Low Speed" << endl;
-            cout << "(2): Medium Speed" << endl;
-            cout << "(3): High Speed" << endl;
-            cout << "(4): Max Speed" << endl;
-            cout << "Any Other Key: Cancel" << endl;
-            cin >> fanSpeed;
-            switch (fanSpeed) {
+            while (!exitFan) {
+                cout << "(0): Off" << endl;
+                cout << "(1): Low Speed" << endl;
+                cout << "(2): Medium Speed" << endl;
+                cout << "(3): High Speed" << endl;
+                cout << "(4): Max Speed" << endl;
+                cout << "Any Other Key: Cancel" << endl;
+                cin >> fanSpeed;
+                switch (fanSpeed) {
                 case '0':
                     send(clientSocket, "0", 256, 0);
                     break;
@@ -237,12 +240,15 @@ void fan_change() {
                     send(clientSocket, "4", 256, 0);
                     break;
                 default:
+                    exitFan = true;
                     break;
+                }
             }
+            exitFan = false;
         }
-        else {
-            cout << "Invalid Entry" << endl;
-        }
+            else {
+                cout << "Invalid Entry" << endl;
+            }
 
     }
 }
@@ -271,9 +277,9 @@ void time_change() { //still needs to be done
                 cout << "Which schedule would you like to delete?" << endl;
             }
             else if (timeCommand == '1') {
-                cout << "Enter a new time to add: " << endl; 
+                cout << "Enter a new time to add: " << endl;
             }
-            else if (timeCommand == '2'){
+            else if (timeCommand == '2') {
                 cout << "Which schedule would you like to change?" << endl;
             }
             else {
@@ -296,30 +302,30 @@ void power_settings() {
     cout << "(2): Turn Off Recording System" << endl;
     cout << "(3): Turn On Fan" << endl;
     cout << "(4): Turn Off Fan" << endl;
-    
+
     while (!loopBreak) {
-        
-        cin >> exitChar; 
+
+        cin >> exitChar;
         switch (exitChar) {
-            case '0':
-                send(clientSocket, "0", 256, 0);
-                loopBreak = true;
-                break;
-            case '1':
-                send(clientSocket, "1", 256, 0);
-                break;
-            case '2':
-                send(clientSocket, "2", 256, 0);
-                break;
-            case '3':
-                send(clientSocket, "3", 256, 0);
-                break;
-            case '4':
-                send(clientSocket, "4", 256, 0);
-                break;
-            default:
-                cout << "Invalid Entry. Please Try Again." << endl;
-                break;
+        case '0':
+            send(clientSocket, "0", 256, 0);
+            loopBreak = true;
+            break;
+        case '1':
+            send(clientSocket, "1", 256, 0);
+            break;
+        case '2':
+            send(clientSocket, "2", 256, 0);
+            break;
+        case '3':
+            send(clientSocket, "3", 256, 0);
+            break;
+        case '4':
+            send(clientSocket, "4", 256, 0);
+            break;
+        default:
+            cout << "Invalid Entry. Please Try Again." << endl;
+            break;
         }
     }
 }
@@ -335,10 +341,10 @@ void system_data() {
     cout << "(0): Exit" << endl;
     cout << endl;
 
-    chrono::seconds(5);
+    //chrono::seconds(5);
 
     while (!exitFlag) {
-        recv(clientSocket, deviceOn, 256, 0);
+        recv(clientSocket, deviceOn, 1, 0);
         cout << "Recording Device: ";
         if (deviceOn[0] == '1') {
             cout << "On" << endl;
@@ -346,8 +352,8 @@ void system_data() {
         else {
             cout << "Off" << endl;
         }
-        chrono::seconds(1);
-        recv(clientSocket, fanOn, 256, 0);
+        //chrono::seconds(1);
+        recv(clientSocket, fanOn, 1, 0);
         cout << "Fan: ";
         if (fanOn[0] == '1') {
             cout << "On" << endl;
@@ -355,32 +361,31 @@ void system_data() {
         else {
             cout << "Off" << endl;
         }
-        chrono::seconds(1);
+        //chrono::seconds(1);
         recv(clientSocket, tempRead, 256, 0);
         cout << "Temperature: ";
         cout << tempRead << endl;
-        chrono::seconds(1);
+        //chrono::seconds(1);
         recv(clientSocket, timeRead, 256, 0);
         cout << "Time: ";
         cout << timeRead << endl;
-        chrono::seconds(1);
-        recv(clientSocket, fanRead, 256, 0);
+        //chrono::seconds(1);
+        /*recv(clientSocket, fanRead, 256, 0);
         cout << "Fan Speed: ";
-        cout << fanRead << endl;
+        cout << fanRead << endl;*/
         chrono::seconds(1);
 
     }
     //cout << "Exit Loop" << endl;
     exitFlag = false;
     t1.join();
-    //cout << "Thread Joined Back" << endl;
-    cout << endl;
+    cout << "Exiting..." << endl;
 
 }
 
 void user_Input(void) {
     char exitChar;
-    do{
+    do {
         cin >> exitChar;
     } while (exitChar != '0');
     cout << "Exit thread loop" << endl;
@@ -388,4 +393,3 @@ void user_Input(void) {
     send(clientSocket, "0", 256, 0);
 
 }
-
