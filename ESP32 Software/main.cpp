@@ -12,8 +12,8 @@
 
 using namespace std;
 
-const char *wifi_ID = "AirRowdy Guest";
-//const char *password = "toastyyy";
+const char *wifi_ID = "GuysHouse";
+const char *password = "Proverbs910";
 //const char *wifi_ID = "NTGR_26A4_5G"; //set up with the NETGEAR router
 //const char *password = "wp2aVA7s";
 const char *ntpServer = "pool.ntp.org"; //time server to connect to in order to get local time.
@@ -121,7 +121,7 @@ void setup() {
   
   tempSensor.begin(); //intializes the DS18B20 sensor
 
-  /*xTaskCreatePinnedToCore(
+  xTaskCreatePinnedToCore(
     socket_connection,      //code for task
     "SocketConnectionTask", //name of task
     10000,                 //stack size of task
@@ -129,7 +129,7 @@ void setup() {
     1,                      //task priority
     &connection_task,       //the struct which the xTaskCreatePinnedToCore information is passed to
     0                       //Which core the task will run in
-  );//Sets up the task assignment to the core*/
+  );//Sets up the task assignment to the core
 
 }
 
@@ -227,7 +227,7 @@ void time_check(void){
 void WiFi_initializing(void){ //ensure esp32 is a client/station mode
   int fail_count = 0;
 
-  WiFi.begin(wifi_ID);
+  WiFi.begin(wifi_ID, password);
   Serial.print("Connecting to ");
   Serial.print(wifi_ID);
   Serial.print("...");
@@ -281,61 +281,80 @@ void socket_connection(void *taskParamaters){
 
     else{
       Serial.println("Communicating with Server...");
-      communication();
+      while(client.connected()){
+        delay(1000);
+        communication();
+      }
     }
 
   }
 }
 
 void communication(void){
-  int i = 0;
+  Serial.println("COMMUNICATION");
   if (client.available()){
-    while(client.available()){
-      //Serial.println(i);
-      serverCommand[i] = client.read();
-      i++;
-    }
-    Serial.println(serverCommand);
+    serverCommand[0] = client.read();
+    Serial.print(serverCommand);
     control_menu(serverCommand);
+  }
+    
+   
     memset(serverCommand, 0, sizeof(serverCommand)); //clears the serverCommand character array for the next use
 
   }
 
-}
 
 void control_menu(char* command){
+  bool exitMenu = false;
   Serial.println("control_menu called");
   switch(command[0]){
-    case '0':
+    case '0': //case 0 finished
       while(true){
+        delay(1000);
         if((client.read()=='0') || (!client.connected())){
+          client.flush();
           break;
         }
         power_boolean_read();
+        delay(1000);
         temp_read();
+        delay(1000);
         time_read();
-        fan_read();
+        //fan_read();
         delay(1000);
       }
       break;
     case '1':
+      client.flush();
       fanSpeedChange();
+      client.flush();
       //change fan speed
       break;
     case '2':
+      client.write(to_string(fanOnTemp).c_str());
+      while(true){
+      delay(1000);
       tempChange();
+      client.flush();
+      }
       //change temp condition
       break;
     case '3':
+      client.flush();
       timeMenu();
+      client.flush();
       //change time schedule
       break;
     case '4':
+      client.flush();
       power_menu();
+      client.flush();
       //go to power system menu
       break;
     default:
+      client.flush();
       Serial.println("Invalid Command. Please Try Again");
+      client.flush();
       break;
  
   }
@@ -344,10 +363,11 @@ void control_menu(char* command){
 void power_menu(void){
   Serial.println("power_menu called");
   bool exitLoop = false;
-  char power_command;
+  char power_command[1] = "";
   while(!exitLoop){
-    power_command = client.read();
-    switch(power_command){
+    delay(1000); //prevents watchdog trigger
+    power_command[0] = client.read();
+    switch(power_command[0]){
       case '0':
         exitLoop = true;
         break;
@@ -365,8 +385,9 @@ void power_menu(void){
         break;
       default:
         break;
+    }
   }
-}
+  memset(power_command, 0, sizeof(power_command));
 }
 
 void temp_read(void){
@@ -390,8 +411,9 @@ void fan_read(void){
 
 void power_boolean_read(void){
   Serial.println("power_boolean_read called");
-  client.write(recordOn);
-  client.write(fanOn);
+  client.write(to_string(recordOn).c_str());
+  delay(1000);
+  client.write(to_string(fanOn).c_str());
 }
 
 void fanSpeedChange(void){
@@ -400,6 +422,7 @@ void fanSpeedChange(void){
   bool exitFlag = false;
   char speedChange;
   while (!exitFlag){
+    delay(1000); //prevents watchdog trigger
     speedChange = client.read();
     switch(speedChange){
       case '0':
@@ -427,7 +450,7 @@ void fanSpeedChange(void){
 }
 
 void timeMenu(void){ //still needs to be done
-  Serial.println("timeChange called");
+  Serial.println("timeMenu called");
   char timeCommand;
   timeCommand = client.read();
   switch(timeCommand){
@@ -466,12 +489,12 @@ void time_add(void){
 
 void time_remove(void){
   Serial.println("time_remove called");
-  char timeCommand;
-  timeCommand = client.read();
+  char timeCommand[1];
+  timeCommand[0] = client.read();
 
   int x=0;
   if(x==1){
-    //remove_array_entry(atoi(timeCommand));
+    remove_array_entry(atoi(timeCommand));
     client.write("Entry ");
     client.write(timeCommand);
     client.write(" was successfully removed!");
@@ -486,22 +509,22 @@ void time_remove(void){
 
 void time_change(void){
   Serial.println("time_change called");
-  char timeCommand;
+  char timeCommand[1];
   int i = 0;
-  timeCommand = client.read();
+  timeCommand[0] = client.read();
   while(client.available()){
     serverCommand[i] = client.read();
     i++;
   }
 
   char *token_string = strtok(serverCommand, ":");
-  //schedule_times[atoi(timeCommand)].tm_hour = atoi(token_string);
+  schedule_times[atoi(timeCommand)].tm_hour = atoi(token_string);
   
   token_string = strtok(NULL, ":"); 
-  //schedule_times[atoi(timeCommand)].tm_min = atoi(token_string);
+  schedule_times[atoi(timeCommand)].tm_min = atoi(token_string);
   
   token_string = strtok(NULL, ":");
-  //schedule_times[atoi(timeCommand)].tm_sec = atoi(token_string);
+  schedule_times[atoi(timeCommand)].tm_sec = atoi(token_string);
   
   memset(serverCommand, 0, sizeof(serverCommand));
   timeMenu();
@@ -517,15 +540,37 @@ void remove_array_entry(int element){
 
 void tempChange(void){
   Serial.println("tempChange called");
-  char tempChange[20];
+  char tempChange[256] = "";
   int i=0;
-  while(client.available()){
-    tempChange[i]=client.read();
-    i++;
+  char changeCommand;
+  bool exitMenu = false;
+  
+  changeCommand = client.read();
+
+  if(changeCommand == '1'){
+    Serial.println("Called");
+    while(!exitMenu){
+      Serial.println("Works");
+      delay(1000);
+      while(client.available()){
+        Serial.println(i);
+        tempChange[i]=client.read();
+        i++;
+        if(!client.available()){
+          Serial.println("Triggers");
+          exitMenu = true;
+        }
+      }
+    }
+    
+    Serial.println(tempChange);
+    fanOnTemp = atof(tempChange);
+    client.write(to_string(fanOnTemp).c_str());
+    memset(tempChange, 0, sizeof(tempChange));
   }
-  fanOnTemp = atof(tempChange);
-  Serial.println(fanOnTemp);
-  //memset(tempChange, 0, sizeof(tempChange));
+  else{
+    Serial.println("Else Called");
+  }
 }
 
 void record_on(void){
