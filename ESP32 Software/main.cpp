@@ -12,8 +12,8 @@
 
 using namespace std;
 
-const char *wifi_ID = "GuysHouse";
-const char *password = "Proverbs910";
+const char *wifi_ID = "AirRowdy Guest";
+//const char *password = "toastyyy";
 //const char *wifi_ID = "NTGR_26A4_5G"; //set up with the NETGEAR router
 //const char *password = "wp2aVA7s";
 const char *ntpServer = "pool.ntp.org"; //time server to connect to in order to get local time.
@@ -111,7 +111,7 @@ void setup() {
   digitalWrite(SQM_power, 0); 
   digitalWrite(miniPC_power, 0); 
   digitalWrite(dewHeater_power, 0); 
-  analogWrite(fanPWM, mediumSpd);
+  analogWrite(fanPWM, lowSpd);
   
   WiFi_initializing(); //Connects ESP32 to WiFi
 
@@ -121,7 +121,7 @@ void setup() {
   
   tempSensor.begin(); //intializes the DS18B20 sensor
 
-  xTaskCreatePinnedToCore(
+  /*xTaskCreatePinnedToCore(
     socket_connection,      //code for task
     "SocketConnectionTask", //name of task
     10000,                 //stack size of task
@@ -129,7 +129,7 @@ void setup() {
     1,                      //task priority
     &connection_task,       //the struct which the xTaskCreatePinnedToCore information is passed to
     0                       //Which core the task will run in
-  );//Sets up the task assignment to the core
+  );//Sets up the task assignment to the core*/
 
 }
 
@@ -158,7 +158,7 @@ void loop() { //NOTE: everything else besides the task is being ran on Core 1 I 
 
 // put function definitions here:
 void tm_initialization(void){
-  schedule_times[0].tm_hour = 22;
+  schedule_times[0].tm_hour = 18;
   schedule_times[0].tm_min = 0;
   schedule_times[0].tm_sec = 0;
 
@@ -208,7 +208,7 @@ void time_check(void){
   Serial.println(time_ESP32.tm_sec);
   
   for(i=0; i<SCHEDULE_SIZE; i++){ //this method for turning on at a schedule can be improved
-    if(((time_ESP32.tm_hour == schedule_times[i]) && (time_ESP32.tm_min < onTime)) || (recordFlag)){ //change this to account for minutes spilling over
+    if(((time_ESP32.tm_hour == schedule_times[i].tm_hour) && (time_ESP32.tm_min < onTimeMin)) || (recordFlag)){ //change this to account for minutes spilling over
       digitalWrite(SQM_power, HIGH);
       digitalWrite(dewHeater_power, HIGH);
       digitalWrite(miniPC_power, HIGH);
@@ -227,7 +227,7 @@ void time_check(void){
 void WiFi_initializing(void){ //ensure esp32 is a client/station mode
   int fail_count = 0;
 
-  WiFi.begin(wifi_ID, password);
+  WiFi.begin(wifi_ID);
   Serial.print("Connecting to ");
   Serial.print(wifi_ID);
   Serial.print("...");
@@ -327,7 +327,7 @@ void control_menu(char* command){
       //change temp condition
       break;
     case '3':
-      timeChange();
+      timeMenu();
       //change time schedule
       break;
     case '4':
@@ -418,11 +418,12 @@ void fanSpeedChange(void){
         analogWrite(fanPWM, maxSpd);
         break;
       default:
-        boolFlag = true;
+        exitFlag = true;
         Serial.println("Exiting Window");
         break;
   }
   //memset(serverCommand, 0, sizeof(serverCommand));
+}
 }
 
 void timeMenu(void){ //still needs to be done
@@ -446,18 +447,18 @@ void time_add(void){
   Serial.println("time_add called");
   int i = 0;
   while(client.available()){
-    serverCommand = client.read();
+    serverCommand[i] = client.read();
     i++;
   }
   
   char *token_string = strtok(serverCommand, ":");
-  schedule_times[atoi(timeCommand)].tm_hour = token_string; //change this to be adjusted for the element size
+  //schedule_times[atoi(timeCommand)].tm_hour = token_string; //change this to be adjusted for the element size
   
   token_string = strtok(NULL, ":"); 
-  schedule_times[atoi(timeCommand)].tm_min = token_string;
+  //schedule_times[atoi(timeCommand)].tm_min = token_string;
   
   token_string = strtok(NULL, ":");
-  schedule_times[atoi(timeCommand)].tm_sec = token_string;
+  //schedule_times[atoi(timeCommand)].tm_sec = token_string;
   
   memset(serverCommand, 0, sizeof(serverCommand));
   timeMenu();
@@ -468,8 +469,9 @@ void time_remove(void){
   char timeCommand;
   timeCommand = client.read();
 
-  if(){
-    remove_array_entry(atoi(timeCommand));
+  int x=0;
+  if(x==1){
+    //remove_array_entry(atoi(timeCommand));
     client.write("Entry ");
     client.write(timeCommand);
     client.write(" was successfully removed!");
@@ -493,13 +495,13 @@ void time_change(void){
   }
 
   char *token_string = strtok(serverCommand, ":");
-  schedule_times[atoi(timeCommand)].tm_hour = token_string;
+  //schedule_times[atoi(timeCommand)].tm_hour = atoi(token_string);
   
   token_string = strtok(NULL, ":"); 
-  schedule_times[atoi(timeCommand)].tm_min = token_string;
+  //schedule_times[atoi(timeCommand)].tm_min = atoi(token_string);
   
   token_string = strtok(NULL, ":");
-  schedule_times[atoi(timeCommand)].tm_sec = token_string;
+  //schedule_times[atoi(timeCommand)].tm_sec = atoi(token_string);
   
   memset(serverCommand, 0, sizeof(serverCommand));
   timeMenu();
