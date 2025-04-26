@@ -5,9 +5,7 @@
 #include <fstream>
 #include <ASICamera2.h>
 #include <opencv2/opencv.hpp> //figure this out. Probably need to include .lib files again
-#include <opencv2/core/hal/interface.h>
-#include <opencv2/highgui.hpp>
-#include <opencv2/imgcodecs.hpp>
+
 
 
 using namespace std;
