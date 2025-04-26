@@ -4,92 +4,96 @@
 #include <iostream>
 #include <fstream>
 #include <ASICamera2.h>
-#include <opencv2/opencv.hpp> //figure this out. Probably need to includ .lib files again
+#include <opencv2/opencv.hpp> //figure this out. Probably need to include .lib files again
+#include <opencv2/core/hal/interface.h>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgcodecs.hpp>
+
 
 using namespace std;
+using namespace cv;
 
 //#pragma comment (lib, "ASICamera2.lib")
 
-int main()
-{
+int main(){
 	int cameraCount;
-	int controlNum;
-	int capacityControl;
 	ASI_CAMERA_INFO* ZWOCamera = (ASI_CAMERA_INFO*)malloc(sizeof(ASI_CAMERA_INFO));
-	ASI_CONTROL_CAPS* ZWOControl = (ASI_CONTROL_CAPS*)malloc(sizeof(ASI_CONTROL_CAPS));
-	ASI_CONTROL_TYPE ZWOType; //= (ASI_CONTROL_TYPE)malloc(sizeof(ASI_CONTROL_TYPE));
-	
-	ASI_SUPPORTED_MODE* ZWOSupport = (ASI_SUPPORTED_MODE*)malloc(sizeof(ASI_SUPPORTED_MODE));
-	ASI_CAMERA_MODE* ZWOMode = (ASI_CAMERA_MODE*)malloc(sizeof(ASI_CAMERA_MODE));
 
 	cameraCount = ASIGetNumOfConnectedCameras(); //detects if a ASI camera is connected
 	cout << "Number of cameras connected: ";
 	cout << cameraCount << endl;
 	
 	ASIGetCameraProperty(ZWOCamera,0); //collects the properties of 1st connected ASI camera into a _ASI_CAMERA_INFO struct
-
+	//cout << ASIGetCameraProperty(ZWOCamera, 0) << endl;
 	cout << "Camera: " << ZWOCamera->Name << endl;
 	
 	cout << "Image Resolution: " << ZWOCamera->MaxWidth << "x" << ZWOCamera->MaxHeight << endl;
+	cout << "Pixel Size: " << ZWOCamera->PixelSize << endl;
 
-	ASIOpenCamera(ZWOCamera->CameraID);  //opens
-	ASIInitCamera(ZWOCamera->CameraID);
+	int width = ZWOCamera->MaxWidth;
+	int height = ZWOCamera->MaxHeight;
+	//cout << ZWOCamera->BitDepth << endl;
 
-	//ASIGetNumOfControls(ZWOCamera->CameraID, &controlNum);
+	if (ASIOpenCamera(ZWOCamera->CameraID) == ASI_SUCCESS) {  //opens
+		cout << "Camera Successfully Opened" << endl;
+	}
 
-	//cout << "Number of Controls: " << controlNum << endl;
+	if (ASIInitCamera(ZWOCamera->CameraID) == ASI_SUCCESS) {
+		cout << "Camera Successfully Initialized" << endl;
+	}
 
-	//ASIGetControlCaps(ZWOCamera->CameraID, 0, ZWOControl); //use this to access different control categories (access gain, exposure, etc.) from ZWOCamera. the 2nd arguement tells the program which category to access (gain=0, exposure=1). the control category is stored in ZWOControl
-	
 	//cout << "Controls: " << ZWOControl->Name << endl;
 
 	//cout << ZWOCamera->SupportedVideoFormat[1] << endl;
 
-	ASISetROIFormat(ZWOCamera->CameraID, ZWOCamera->MaxWidth, ZWOCamera->MaxHeight, 1, ASI_IMG_RGB24); //sets the camera up with its proper resolution and in color mode
+	ASISetROIFormat(ZWOCamera->CameraID, width, height, 1, ASI_IMG_RAW16); //sets the camera up with its proper resolution and in color mode
 	ASISetStartPos(ZWOCamera->CameraID, 0, 0);
 
-	//ASISetControlValue(ZWOCamera->CameraID, ZWOType, );
-
-	/*ASIGetCameraSupportMode(ZWOCamera->CameraID, );
-	ASISetCameraMode(ZWOCamera->CameraID, *ZWOMode);
-	ASIGetCameraMode(ZWOCamera->CameraID, ZWOMode);
-	*/
-	/*if (ZWOCamera->IsTriggerCam) {
-		
+	//cout << ZWOCamera->SupportedBins[3] << endl;
+	
+	/*if (ASISetControlValue(ZWOCamera->CameraID, ASI_HIGH_SPEED_MODE, 1, ASI_TRUE) == ASI_SUCCESS) {
+		cout << "Control Value Successfully Set" << endl;
 	}*/
 
-	ASISetCameraMode(ZWOCamera->CameraID, ASI_MODE_NORMAL);
+	long exposure = 25000;
+	long gain = 100;
 
-	//cout << ZWOCamera->IsColorCam << endl;
+	ASISetControlValue(ZWOCamera->CameraID, ASI_EXPOSURE, exposure, ASI_TRUE);
+	ASISetControlValue(ZWOCamera->CameraID, ASI_GAIN, gain, ASI_TRUE);
 
-	char exitCommand = '0';
-	unsigned char X[3552];
-	ofstream myFile("video.raw");
-
-	ASIStartVideoCapture(ZWOCamera->CameraID);
-	for (int i = 0; i < 3552; i++){
-		if (ASIGetVideoData(ZWOCamera->CameraID, X, 3552*3552, -1) == ASI_SUCCESS) {
-			myFile << X;
-		}
-		else {
-
-		}
-		cout << X << endl;
+	if (ASISetCameraMode(ZWOCamera->CameraID, ASI_MODE_NORMAL) == ASI_SUCCESS) {
+		cout << "Camera Mode Successfully Set" << endl;
 	}
-	ASIStopVideoCapture(ZWOCamera->CameraID);
-	myFile.close();
-	/*while () {
-		cin >> exitCommand;
-		if (ASIGetVideoData(ZWOCamera->CameraID, X, 256, 1000) == ASI_SUCCESS) {
-			ASIStartVideoCapture(ZWOCamera->CameraID);
-			ASIGetVideoData(ZWOCamera->CameraID, X, 256, 1000);
-			cout << X << endl;
-		}
-	}
-	ASIStopVideoCapture(ZWOCamera->CameraID);*/
 
-	ASICloseCamera(ZWOCamera->CameraID);
+	
+	if (ASIStartVideoCapture(ZWOCamera->CameraID) == ASI_SUCCESS) {
+		cout << "Camera Video Successfully Started" << endl;
+	}
+
+	Mat image(width, height, CV_16U);
+	Mat color_image;
+
+	if ((ASIGetVideoData(ZWOCamera->CameraID, image.data, width*height*2, ASI_EXPOSURE*2+500)) == ASI_SUCCESS) {
+		cout << "Video Data Is Captured!" << endl;
+
+		//cvtColor(image, color_image, COLOR_GRAY2RGB);
+		imwrite("ASIG.png", image);
+		//imshow("Colored Image", image);
+		//waitKey(0);
+	}
+	else {
+		cout << "Didn't get video data!" << endl;
+	}
 	
 
+	if (ASIStopVideoCapture(ZWOCamera->CameraID) == ASI_SUCCESS) {
+		cout << "Camera Video Successfully Stopped" << endl;
+	}
+	
+
+	if (ASICloseCamera(ZWOCamera->CameraID) == ASI_SUCCESS) {
+		cout << "Camera Successfully Closed" << endl;
+	}
+	
 	return 0;
 }
