@@ -262,13 +262,13 @@ void time_change() { //still needs to be done
     bool exitLoop = false;
     char timeString[256] = "";
     int i = 0;
-    cout << "What would you like to do to the time schedules?" << endl;
-    cout << "(0): Exit" << endl;
-    cout << "(1): Delete a time" << endl;
-    cout << "(2): Add a new time" << endl;
-    cout << "(3): Change a time in the system" << endl;
-    cout << "(4): Change the duration the device is on" << endl;
     while (!exitLoop) {
+        cout << "What would you like to do to the time schedules?" << endl;
+        cout << "(0): Exit" << endl;
+        cout << "(1): Delete a time" << endl;
+        cout << "(2): Add a new time" << endl;
+        cout << "(3): Change a time in the system" << endl;
+        cout << "(4): Change the duration the device is on" << endl;
         cin >> timeCommand;
         switch (timeCommand) {
             case '0':
