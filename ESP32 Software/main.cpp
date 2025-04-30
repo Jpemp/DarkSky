@@ -27,7 +27,7 @@ WiFiClient client; //creates a client socket
 TaskHandle_t connection_task; //allows for more effecient code by doing socket checking and socket handling by core 0, while the rest of the code is handled by core 1. ESP32 is a dual core system
 
 static struct tm schedule_times[SCHEDULE_SIZE];
-static int number_of_schedules = sizeof(schedule_times)/sizeof(schedule_times[0]);
+static int number_of_schedules = 5;
 static int onTimeMin = 15;
 
 static double utc_offset = -6*3600; //time displayed as military time. adjusted from greenwich mean time(utc) to central time(Texas time). Maybe include a function where this is adjustable?
@@ -39,8 +39,8 @@ static float fanOnTemp = 90.0; //temperature at which the fan turns on at
 static float temp; //temperature read by sensor
 
 //names of pins
-const int tempSensor_input = 26; //A0 pin. Used for DS18B20 temp sensor data line input
-const int fanPWM = 21; //21 pin. Used to control fan speed with PWM signal
+const int tempSensor_input = 39; //A3 pin. Used for DS18B20 temp sensor data line input
+const int fanPWM = 4; //A5 pin. Used to control fan speed with PWM signal
 const int fanSpeed_input = 34; //A2 pin. Used to monitor fan speed
 const int fan_power = 27; //27 pin. Used for fan power signal to relay switch
 const int SQM_power = 15; //15 pin. Used for SQM power signal to relay switch
@@ -72,6 +72,7 @@ void time_remove();
 void time_change();
 void remove_array_entry(int);
 void tm_initialization();
+void duration_change();
 
 //flags to keep fan and recording device on regardless of conditional statement
 static bool fanFlag = false;
@@ -88,7 +89,7 @@ static int mediumSpd = 127;
 static int highSpd = 191;
 static int maxSpd = 255;
 
-OneWire oneWire(tempSensor_input); //GPIO 26/A0 is input for digital temp reader. Argument tells OneWire(DS18B20) which pin the temp sensor data line is going to 
+OneWire oneWire(tempSensor_input); //GPIO 39/A3 is input for digital temp reader. Argument tells OneWire(DS18B20) which pin the temp sensor data line is going to 
 DallasTemperature tempSensor(&oneWire); //passes GPIO address to DallasTemperature. Pointer parameter requires this. Address points to GPIO pin 34
 
 void setup() {
@@ -102,7 +103,7 @@ void setup() {
   pinMode(SQM_power, OUTPUT); //Connect to SQM relay (GPIO 15/A8 input on ADC2)
   pinMode(miniPC_power, OUTPUT); //Connect to MiniPC relay (GPIO 32/A7 on ADC1/32KHz crystal)
   pinMode(dewHeater_power, OUTPUT); //Connect to dew heater (GPIO 14/A6 on ADC2)
-  pinMode(fanPWM, OUTPUT); //Connects fan PWM (fan speed output) to GPIO 21
+  pinMode(fanPWM, OUTPUT); //Connects fan PWM (fan speed output) to GPIO 4/A5
   pinMode(fanSpeed_input, INPUT); //Connects fan speed data read to A2/GPIO 34
 
   //pin initialization
@@ -112,6 +113,8 @@ void setup() {
   digitalWrite(miniPC_power, 0); 
   digitalWrite(dewHeater_power, 0); 
   analogWrite(fanPWM, lowSpd);
+
+  tempSensor.begin(); //intializes the DS18B20 sensor
   
   WiFi_initializing(); //Connects ESP32 to WiFi
 
@@ -119,7 +122,6 @@ void setup() {
 
   tm_initialization();
   
-  tempSensor.begin(); //intializes the DS18B20 sensor
 
   xTaskCreatePinnedToCore(
     socket_connection,      //code for task
@@ -157,7 +159,7 @@ void loop() { //NOTE: everything else besides the task is being ran on Core 1 I 
 }
 
 // put function definitions here:
-void tm_initialization(void){
+void tm_initialization(void){ //finished
   schedule_times[0].tm_hour = 18;
   schedule_times[0].tm_min = 0;
   schedule_times[0].tm_sec = 0;
@@ -179,7 +181,7 @@ void tm_initialization(void){
   schedule_times[4].tm_sec = 0;
 }
 
-void temp_check(void) {
+void temp_check(void) { //finished
   tempSensor.requestTemperatures();
   temp = tempSensor.getTempFByIndex(0);
 
@@ -196,7 +198,7 @@ void temp_check(void) {
   }
 }
 
-void time_check(void){
+void time_check(void){ //finished
   int i;
 
   Serial.print("Time: ");
@@ -224,7 +226,7 @@ void time_check(void){
   }
 }
 
-void WiFi_initializing(void){ //ensure esp32 is a client/station mode
+void WiFi_initializing(void){ //finished
   int fail_count = 0;
 
   WiFi.begin(wifi_ID, password);
@@ -257,7 +259,7 @@ void WiFi_initializing(void){ //ensure esp32 is a client/station mode
   delay(3000);
 }
 
-void socket_connection(void *taskParamaters){
+void socket_connection(void *taskParamaters){ //finished
   //bool functionCall = false;
   int i = 0;
   while(true){ //infinite loop to run task in
@@ -290,11 +292,11 @@ void socket_connection(void *taskParamaters){
   }
 }
 
-void communication(void){
+void communication(void){ //finished
   Serial.println("COMMUNICATION");
   if (client.available()){
     serverCommand[0] = client.read();
-    Serial.print(serverCommand);
+    //Serial.println(serverCommand);
     control_menu(serverCommand);
   }
     
@@ -303,16 +305,20 @@ void communication(void){
 
   }
 
-
 void control_menu(char* command){
   bool exitMenu = false;
+  char exitCommand = ' ';
   Serial.println("control_menu called");
+  Serial.println(command);
   switch(command[0]){
     case '0': //case 0 finished
       while(true){
         delay(1000);
-        if((client.read()=='0') || (!client.connected())){
+        if(client.available()){
+          exitCommand = client.read();
           client.flush();
+        }
+        if((exitCommand == '0') || (!client.connected())){
           break;
         }
         power_boolean_read();
@@ -320,83 +326,57 @@ void control_menu(char* command){
         temp_read();
         delay(1000);
         time_read();
-        //fan_read();
+        fan_read();
         delay(1000);
       }
       break;
-    case '1':
-      client.flush();
+    case '1': //case 1 finished
       fanSpeedChange();
-      client.flush();
       //change fan speed
       break;
-    case '2':
+    case '2': //case 2 finished
       client.write(to_string(fanOnTemp).c_str());
-      while(true){
-      delay(1000);
-      tempChange();
       client.flush();
+      while(true){
+        delay(1000);
+        if(client.available()){
+          exitCommand = client.read();
+          client.flush();
+        }
+        if((exitCommand =='0') || (!client.connected())){
+          break;
+        }
+        if(exitCommand == '1'){
+          tempChange();
+        }
+        exitCommand = ' ';
       }
       //change temp condition
       break;
     case '3':
-      client.flush();
       timeMenu();
-      client.flush();
       //change time schedule
       break;
-    case '4':
-      client.flush();
+    case '4': //case 4 finished
       power_menu();
-      client.flush();
       //go to power system menu
       break;
-    default:
-      client.flush();
+    default: //default case done
       Serial.println("Invalid Command. Please Try Again");
-      client.flush();
       break;
  
   }
+  exitCommand = ' ';
+  client.flush();
 }
 
-void power_menu(void){
-  Serial.println("power_menu called");
-  bool exitLoop = false;
-  char power_command[1] = "";
-  while(!exitLoop){
-    delay(1000); //prevents watchdog trigger
-    power_command[0] = client.read();
-    switch(power_command[0]){
-      case '0':
-        exitLoop = true;
-        break;
-      case '1':
-        record_on();
-        break;
-      case '2':
-        record_off();
-        break;
-      case '3':
-        fan_on();
-        break;
-      case '4':
-        fan_off();
-        break;
-      default:
-        break;
-    }
-  }
-  memset(power_command, 0, sizeof(power_command));
-}
-
-void temp_read(void){
+void temp_read(void){ //finished
   Serial.println("temp_read called");
   //Serial.println(to_string(temp).c_str());
   client.write(to_string(temp).c_str());
 }
 
-void time_read(void){
+void time_read(void){ //finished
   Serial.println("time_read called");
   //Serial.println(asctime(&time_ESP32));
   client.write(asctime(&time_ESP32));
@@ -409,61 +389,150 @@ void fan_read(void){
   client.write(to_string(analogRead(fanSpeed_input)).c_str());
 } 
 
-void power_boolean_read(void){
+void power_boolean_read(void){ //finished
   Serial.println("power_boolean_read called");
   client.write(to_string(recordOn).c_str());
   delay(1000);
   client.write(to_string(fanOn).c_str());
 }
 
-void fanSpeedChange(void){
+void tempChange(void){ //finished
+  Serial.println("tempChange called");
+  char tempChange[256] = "";
+  int i=0;
+  char changeCommand;
+  bool exitMenu = false;
+  //changeCommand = client.read();
+  //Serial.println(changeCommand);
+
+  //if(changeCommand == '1'){ //issue here
+    Serial.println("ITS CALLED");
+    client.flush();
+    while(true){
+      delay(1000);
+      if(client.available()){
+        while(client.available()){
+            Serial.println(i);
+            tempChange[i]=client.read();
+            i++;
+        }
+        break;
+      }
+    }
+    Serial.println(tempChange);
+    fanOnTemp = atof(tempChange);
+    client.write(to_string(fanOnTemp).c_str());
+    memset(tempChange, 0, sizeof(tempChange));
+    //}
+
+  }
+
+void fanSpeedChange(void){ //finished
   Serial.println("fanSpeedChange called");
   int i=0;
-  bool exitFlag = false;
-  char speedChange;
-  while (!exitFlag){
+  bool exitLoop = false;
+  char speedChange[1] = "";
+  while (true){
     delay(1000); //prevents watchdog trigger
-    speedChange = client.read();
-    switch(speedChange){
-      case '0':
-        analogWrite(fanPWM, offSpd);
-        break;
-      case '1':
-        analogWrite(fanPWM, lowSpd);
-        break;
-      case '2':
-        analogWrite(fanPWM, mediumSpd);
-        break;
-      case '3':
-        analogWrite(fanPWM, highSpd);
-        break;
-      case '4':
-        analogWrite(fanPWM, maxSpd);
-        break;
-      default:
-        exitFlag = true;
-        Serial.println("Exiting Window");
-        break;
+    
+    if(client.connected()){
+      speedChange[0] = client.read();
+    }
+    
+    if(!client.connected() || (speedChange[0] == '0')){
+      break;
+    }
+   
+    else if (speedChange[0]=='1'){
+      speedChange[0] = ' ';
+      while(!exitLoop){
+        delay(1000);
+        speedChange[0] = client.read();
+        Serial.println(speedChange);
+        switch(speedChange[0]){
+          case '0':
+            exitLoop = true;
+            Serial.println("Exiting Window");
+            break;
+          case '1':
+            analogWrite(fanPWM, offSpd);
+            break;
+          case '2':
+            analogWrite(fanPWM, lowSpd);
+            break;
+          case '3':
+            analogWrite(fanPWM, mediumSpd);
+            break;
+          case '4':
+            analogWrite(fanPWM, highSpd);
+            break;
+          case '5':
+            analogWrite(fanPWM, maxSpd);
+            break;
+          default:
+            break;
+        }
+        client.flush();
+      }
+    }
+    else{
+    }
+    client.flush();
   }
-  //memset(serverCommand, 0, sizeof(serverCommand));
-}
+  memset(speedChange, 0, sizeof(speedChange));
 }
 
 void timeMenu(void){ //still needs to be done
   Serial.println("timeMenu called");
+  client.flush();
   char timeCommand;
-  timeCommand = client.read();
-  switch(timeCommand){
-    case '0':
-      time_add();
-    case '1':
-      time_remove();
-    case '2':
-      time_change();
-    default:
+  bool exitLoop = false;
+  while(!exitLoop){
+    delay(1000); //prevents watchdog trigger
+    if(!client.connected()){
       break;
-  }
+    }
+    timeCommand = client.read();
+    switch(timeCommand){
+      case '0':
+        exitLoop = true;
+        break;
+      case '1':
+        if(number_of_schedules == 5){
 
+        }
+        else{
+          time_add();
+        }
+      case '2':
+      if(number_of_schedules == 0){
+
+      }
+      else{
+        time_remove();
+      }
+      case '3':
+        time_change();
+      case '4':
+        duration_change();
+      default:
+        break;
+    }
+  }
+}
+
+void duration_change(void){
+  Serial.println("duration_change called");
+  client.write(onTimeMin);
+  int i=0;
+  while(client.available()){
+    serverCommand[i]=client.read();
+    i++;
+  }
+  onTimeMin = atoi(serverCommand);
+  Serial.print("New Duration: ");
+  Serial.println(onTimeMin);
+  memset(serverCommand, 0, sizeof(serverCommand));
 }
 
 void time_add(void){
@@ -538,57 +607,57 @@ void remove_array_entry(int element){
   }
 }
 
-void tempChange(void){
-  Serial.println("tempChange called");
-  char tempChange[256] = "";
-  int i=0;
-  char changeCommand;
-  bool exitMenu = false;
-  
-  changeCommand = client.read();
-
-  if(changeCommand == '1'){
-    Serial.println("Called");
-    while(!exitMenu){
-      Serial.println("Works");
-      delay(1000);
-      while(client.available()){
-        Serial.println(i);
-        tempChange[i]=client.read();
-        i++;
-        if(!client.available()){
-          Serial.println("Triggers");
-          exitMenu = true;
-        }
-      }
+void power_menu(void){ //finished
+  Serial.println("power_menu called");
+  bool exitLoop = false;
+  char power_command[1] = "";
+  while(!exitLoop){
+    delay(1000); //prevents watchdog trigger
+    if(!client.connected()){
+      break;
     }
-    
-    Serial.println(tempChange);
-    fanOnTemp = atof(tempChange);
-    client.write(to_string(fanOnTemp).c_str());
-    memset(tempChange, 0, sizeof(tempChange));
+    power_command[0] = client.read();
+    Serial.println(power_command);
+    switch(power_command[0]){
+      case '0':
+        exitLoop = true;
+        break;
+      case '1':
+        record_on();
+        break;
+      case '2':
+        record_off();
+        break;
+      case '3':
+        fan_on();
+        break;
+      case '4':
+        fan_off();
+        break;
+      default:
+        break;
+    }
+    client.flush();
   }
-  else{
-    Serial.println("Else Called");
-  }
+  memset(power_command, 0, sizeof(power_command));
 }
 
-void record_on(void){
+void record_on(void){ //finished
   Serial.println("record_on called");
   recordFlag = true;
 }
 
-void fan_on(void){
+void fan_on(void){ //finished
   Serial.println("fan_on called");
   fanFlag = true;
 }
 
-void record_off(void){
+void record_off(void){ //finished
   Serial.println("record_off called");
   recordFlag = false;
 }
 
-void fan_off(void){
+void fan_off(void){ //finished
   Serial.println("fan_off called");
   fanFlag = false;
 }
