@@ -110,9 +110,6 @@ int main() {
 void server_menu() {
     connectFlag = true;
     char commandMessage;
-    char clieMessage[256] = "";
-
-    //SIMPLIFY THIS WHERE THERE ISNT AS MANY MENUS. DATA VIEWING IN 2 3 AND 4 CAN BE CHANGED TO BE IN THE SAME WINDOW AS THE CHANGE CONDITION WINDOW
 
 
     while (connectFlag) {
@@ -177,6 +174,7 @@ void temp_change() {
         cout << tempCondition << endl;
         cin >> exitChar;
         if (exitChar == '0') {
+            send(clientSocket, "0", 256, 0);
             break;
         }
         else if (exitChar == '1') {
@@ -211,21 +209,24 @@ void fan_change() {
        
         cin >> exitChar;
         if (exitChar == '0') {
+            send(clientSocket, "0", 256, 0);
             exitMenu = true;
             break;
         }
         else if (exitChar == '1') {
+            send(clientSocket, "1", 256, 0);
             while (!exitFan) {
-                cout << "(0): Off" << endl;
-                cout << "(1): Low Speed" << endl;
-                cout << "(2): Medium Speed" << endl;
-                cout << "(3): High Speed" << endl;
-                cout << "(4): Max Speed" << endl;
-                cout << "Any Other Key: Cancel" << endl;
+                cout << "(0): Exit" << endl;
+                cout << "(1): Off" << endl;
+                cout << "(2): Low Speed" << endl;
+                cout << "(3): Medium Speed" << endl;
+                cout << "(4): High Speed" << endl;
+                cout << "(5): Max Speed" << endl;
                 cin >> fanSpeed;
                 switch (fanSpeed) {
                 case '0':
                     send(clientSocket, "0", 256, 0);
+                    exitFan = true;
                     break;
                 case '1':
                     send(clientSocket, "1", 256, 0);
@@ -239,8 +240,10 @@ void fan_change() {
                 case '4':
                     send(clientSocket, "4", 256, 0);
                     break;
+                case '5':
+                    send(clientSocket, "5", 256, 0);
+                    break;
                 default:
-                    exitFan = true;
                     break;
                 }
             }
@@ -256,46 +259,58 @@ void fan_change() {
 void time_change() { //still needs to be done
     char exitChar;
     char timeCommand;
-    cout << "Time Settings:" << endl;
+    bool exitLoop = false;
+    char timeString[256] = "";
+    int i = 0;
+    cout << "What would you like to do to the time schedules?" << endl;
     cout << "(0): Exit" << endl;
-    cout << "(1): Change Time Schedule" << endl;
-    cout << "Current Time Schedule: " << endl;
-    //insert schedule display here
-    while (true) {
-        cin >> exitChar;
-        if (exitChar == '0') {
-            break;
-        }
-        else if (exitChar == '1') {
-            cout << "What would you like to do to the time schedule?" << endl;
-            cout << "(0): Delete a time" << endl;
-            cout << "(1): Add a new time" << endl;
-            cout << "(2): Change a time in the system" << endl;
-            cout << "Any Other Key: Cancel" << endl;
-            cin >> timeCommand;
-            if (timeCommand == '0') {
+    cout << "(1): Delete a time" << endl;
+    cout << "(2): Add a new time" << endl;
+    cout << "(3): Change a time in the system" << endl;
+    cout << "(4): Change the duration the device is on" << endl;
+    while (!exitLoop) {
+        cin >> timeCommand;
+        switch (timeCommand) {
+            case '0':
+                send(clientSocket, "0", 256, 0);
+                exitLoop = true;
+                break;
+            case '1':
+                send(clientSocket, "1", 256, 0);
                 cout << "Which schedule would you like to delete?" << endl;
+                cout << "(0): " << endl;
+                break;
+            case '2':
+                send(clientSocket, "2", 256, 0);
+                cout << "Please Enter A Time To Add: " << endl;
+                break;
+            case '3':
+                send(clientSocket, "3", 256, 0);
+                cout << "Which time would you like to change?" << endl;
+                cout << "(0)" << endl;
+                cout << "(1)" << endl;
+                cout << "(2)" << endl;
+                cout << "(3)" << endl;
+                break;
+            case '4':
+                send(clientSocket, "4", 256, 0);
+                recv(clientSocket, timeString, 256, 0);
+                cout << "Current Time-On Duration: " << timeString << endl;
+                cout << "Enter a new time-on duration" << endl;
+                cin >> timeString;
+                send(clientSocket, timeString, 256, 0);
+                break;
+            default:
+                cout << "Invalid Entry. Please Try Again" << endl;
+                break;
             }
-            else if (timeCommand == '1') {
-                cout << "Enter a new time to add: " << endl;
-            }
-            else if (timeCommand == '2') {
-                cout << "Which schedule would you like to change?" << endl;
-            }
-            else {
-                continue;
-            }
-        }
-        else {
-            cout << "Invalid Entry. Please Try Again" << endl;
-        }
-
     }
+
 }
 
 void power_settings() {
-    bool loopBreak = false;
     char exitChar;
+    bool exitLoop = false;
     cout << "Power Settings:" << endl;
     cout << "(0): Exit" << endl;
     cout << "(1): Turn On Recording System" << endl;
@@ -303,13 +318,12 @@ void power_settings() {
     cout << "(3): Turn On Fan" << endl;
     cout << "(4): Turn Off Fan" << endl;
 
-    while (!loopBreak) {
-
+    while (!exitLoop) {
         cin >> exitChar;
         switch (exitChar) {
         case '0':
             send(clientSocket, "0", 256, 0);
-            loopBreak = true;
+            exitLoop = true;
             break;
         case '1':
             send(clientSocket, "1", 256, 0);
@@ -327,7 +341,9 @@ void power_settings() {
             cout << "Invalid Entry. Please Try Again." << endl;
             break;
         }
+        chrono::seconds(1);
     }
+    cout << "Exiting..." << endl;
 }
 
 void system_data() {
@@ -370,10 +386,10 @@ void system_data() {
         cout << "Time: ";
         cout << timeRead << endl;
         //chrono::seconds(1);
-        /*recv(clientSocket, fanRead, 256, 0);
+        recv(clientSocket, fanRead, 256, 0);
         cout << "Fan Speed: ";
-        cout << fanRead << endl;*/
-        chrono::seconds(1);
+        cout << fanRead << endl;
+        //chrono::seconds(1);
 
     }
     //cout << "Exit Loop" << endl;
