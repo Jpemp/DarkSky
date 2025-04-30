@@ -73,6 +73,7 @@ void time_change();
 void remove_array_entry(int);
 void tm_initialization();
 void duration_change();
+void tm_print(int);
 
 //flags to keep fan and recording device on regardless of conditional statement
 static bool fanFlag = false;
@@ -498,36 +499,48 @@ void timeMenu(void){ //still needs to be done
         exitLoop = true;
         break;
       case '1':
-        if(number_of_schedules == 5){
-
-        }
-        else{
-          time_add();
-        }
-      case '2':
       if(number_of_schedules == 0){
-
       }
       else{
         time_remove();
       }
+      break;
+      case '2':
+        if(number_of_schedules == 5){
+          time_add();
+        }
+        else{
+          time_add();
+          
+        }
+        break;
       case '3':
         time_change();
+        break;
       case '4':
         duration_change();
+        break;
       default:
         break;
     }
+    client.flush();
   }
 }
 
-void duration_change(void){
+void duration_change(void){ //finished
   Serial.println("duration_change called");
-  client.write(onTimeMin);
+  client.flush();
+  client.write(to_string(onTimeMin).c_str());
   int i=0;
-  while(client.available()){
-    serverCommand[i]=client.read();
-    i++;
+  while(true){
+    delay(1000);
+    if(client.available()){
+      while(client.available()){
+        serverCommand[i]=client.read();
+        i++;
+      }
+      break;
+    }
   }
   onTimeMin = atoi(serverCommand);
   Serial.print("New Duration: ");
@@ -537,23 +550,41 @@ void duration_change(void){
 
 void time_add(void){
   Serial.println("time_add called");
+  client.flush();
+  tm_print(number_of_schedules);
+  //client.write(asctime(schedule_times));
+  char timeCommand[1] = ""; 
   int i = 0;
-  while(client.available()){
-    serverCommand[i] = client.read();
-    i++;
+  while(true){
+    delay(1000);
+    if(client.available()){
+      timeCommand[i] = client.read();
+      break;
+    }
+  }
+  
+  while(true){
+    delay(1000);
+    if(client.available()){
+      while(client.available()){
+        serverCommand[i] = client.read();
+        i++;
+      }
+      break;
+    }
   }
   
   char *token_string = strtok(serverCommand, ":");
-  //schedule_times[atoi(timeCommand)].tm_hour = token_string; //change this to be adjusted for the element size
+  schedule_times[atoi(timeCommand)].tm_hour = atoi(token_string); //change this to be adjusted for the element size
   
   token_string = strtok(NULL, ":"); 
-  //schedule_times[atoi(timeCommand)].tm_min = token_string;
+  schedule_times[atoi(timeCommand)].tm_min = atoi(token_string);
   
   token_string = strtok(NULL, ":");
-  //schedule_times[atoi(timeCommand)].tm_sec = token_string;
+  schedule_times[atoi(timeCommand)].tm_sec = atoi(token_string);
   
   memset(serverCommand, 0, sizeof(serverCommand));
-  timeMenu();
+  number_of_schedules++;
 }
 
 void time_remove(void){
@@ -573,7 +604,7 @@ void time_remove(void){
   }
   
   memset(serverCommand, 0, sizeof(serverCommand));
-  timeMenu();
+  number_of_schedules--;
 }
 
 void time_change(void){
@@ -597,6 +628,10 @@ void time_change(void){
   
   memset(serverCommand, 0, sizeof(serverCommand));
   timeMenu();
+}
+
+void tm_print(int i){
+  
 }
 
 void remove_array_entry(int element){
