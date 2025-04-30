@@ -13,8 +13,8 @@
 //#include <opencv2/highgui.hpp>
 //#include <opencv2/core/mat.hpp>
 
-#include <jni.h>
-#include "Main.h"
+//#include <jni.h>
+//#include "Main.h"
 
 using namespace std;
 using namespace cv;
