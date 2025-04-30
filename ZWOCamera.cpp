@@ -9,12 +9,7 @@
 #include <atomic>
 #include <ASICamera2.h>
 #include <opencv2/opencv.hpp> //figure this out. Probably need to include .lib files again
-//#include <opencv2/imgproc.hpp>
-//#include <opencv2/highgui.hpp>
-//#include <opencv2/core/mat.hpp>
 
-//#include <jni.h>
-//#include "Main.h"
 
 using namespace std;
 using namespace cv;
@@ -23,20 +18,18 @@ atomic<bool> thread_end = false;
 
 void capture(ASI_CAMERA_INFO*, int);
 
-JNIEXPORT jint JNICALL Java_Main_Capture(JNIEnv *env, jobject obj, jboolean vidFlag, jint capTimer) {
-
+int main(){
 	int cameraCount;
 	ASI_CAMERA_INFO* ZWOCamera = (ASI_CAMERA_INFO*)malloc(sizeof(ASI_CAMERA_INFO));
 
-	bool liveVid = (bool)vidFlag;
-	int capTime = (int)capTimer;
-
+	bool liveVid = true;
+	int capTime = 10;
 
 	cameraCount = ASIGetNumOfConnectedCameras(); //detects if a ASI camera is connected
 	cout << "Number of cameras connected: ";
 	cout << cameraCount << endl;
-	
-	ASIGetCameraProperty(ZWOCamera,0); //collects the properties of 1st connected ASI camera into a _ASI_CAMERA_INFO struct
+
+	ASIGetCameraProperty(ZWOCamera, 0); //collects the properties of 1st connected ASI camera into a _ASI_CAMERA_INFO struct
 	cout << "Camera: " << ZWOCamera->Name << endl;
 	if (cameraCount != 1) {
 		cout << "No Camera/Too Many Cameras Connected!" << endl;
@@ -100,7 +93,7 @@ JNIEXPORT jint JNICALL Java_Main_Capture(JNIEnv *env, jobject obj, jboolean vidF
 		return -1;
 	}
 
-	
+
 	if (ASIStartVideoCapture(ZWOCamera->CameraID) == ASI_SUCCESS) {
 		cout << "Camera Video Successfully Started" << endl;
 	}
@@ -109,7 +102,7 @@ JNIEXPORT jint JNICALL Java_Main_Capture(JNIEnv *env, jobject obj, jboolean vidF
 		return -1;
 	}
 	ASISetControlValue(ZWOCamera->CameraID, ASI_HIGH_SPEED_MODE, 1, ASI_FALSE);
-	
+
 	Mat image(width, height, CV_8UC3);
 	Mat window;
 	int timer = 10;
@@ -142,7 +135,7 @@ JNIEXPORT jint JNICALL Java_Main_Capture(JNIEnv *env, jobject obj, jboolean vidF
 			}
 		}
 	}
-	
+
 
 	if (ASIStopVideoCapture(ZWOCamera->CameraID) == ASI_SUCCESS) {
 		cout << "Camera Video Successfully Stopped" << endl;
@@ -151,7 +144,7 @@ JNIEXPORT jint JNICALL Java_Main_Capture(JNIEnv *env, jobject obj, jboolean vidF
 		cout << "Camera Video Didn't Stop!" << endl;
 		return -1;
 	}
-	
+
 
 	if (ASICloseCamera(ZWOCamera->CameraID) == ASI_SUCCESS) {
 		cout << "Camera Successfully Closed" << endl;
@@ -160,7 +153,7 @@ JNIEXPORT jint JNICALL Java_Main_Capture(JNIEnv *env, jobject obj, jboolean vidF
 		cout << "Camera Didn't Close!" << endl;
 		return -1;
 	}
-	
+
 	return 0;
 }
 
@@ -190,9 +183,9 @@ void capture(ASI_CAMERA_INFO* ZWOCamera, int captureTime) {
 			imwrite(timestring, image);
 		}
 		else {
-				cout << "Didn't Get Video Data!" << endl;
-				thread_end = true;
-				break;
+			cout << "Didn't Get Video Data!" << endl;
+			thread_end = true;
+			break;
 		}
 		this_thread::sleep_for(chrono::seconds(captureTime));
 	}
