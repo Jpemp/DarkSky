@@ -194,6 +194,6 @@ void capture(ASI_CAMERA_INFO* ZWOCamera, int captureTime) {
 				thread_end = true;
 				break;
 		}
-		//this_thread::sleep_for(chrono::seconds(captureTime));
+		this_thread::sleep_for(chrono::seconds(captureTime));
 	}
 }
