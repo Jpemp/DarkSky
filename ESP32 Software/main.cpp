@@ -9,15 +9,12 @@
 
 #define SCHEDULE_SIZE 5
 
-
 using namespace std;
 
-const char *wifi_ID = "GuysHouse";
-const char *password = "Proverbs910";
-//const char *wifi_ID = "NTGR_26A4_5G"; //set up with the NETGEAR router
-//const char *password = "wp2aVA7s";
+const char *wifi_ID = "NTGR_26A4_5G"; //set up with the NETGEAR router
+const char *password = "wp2aVA7s";
 const char *ntpServer = "pool.ntp.org"; //time server to connect to in order to get local time.
-const char *compServerIP = "192.168.1.180";
+const char *compServerIP = "198.168.1.1";
 
 static bool connectFlag = false; //indicate if the ESP32 client socket is connected to server socket
 static char serverCommand[256] = ""; //used to store messages from server
@@ -78,10 +75,9 @@ void tm_print(int);
 //flags to keep fan and recording device on regardless of conditional statement
 static bool fanFlag = false;
 static bool recordFlag = false;
-//
+
 static bool fanOn = false;
 static bool recordOn = false;
-
 
 //fan speed modes
 static int offSpd = 0;
@@ -98,6 +94,8 @@ void setup() {
 
   Serial.begin(115200); //serial communication to terminal
 
+  tempSensor.begin(); //intializes the DS18B20 sensor
+  
   //pin configuration
   pinMode(LED_BUILTIN, OUTPUT); //LED on the board. We can use this to indicate that the board is on
   pinMode(fan_power, OUTPUT); //Connect to fan relay (GPIO 27/A10 input on ADC2)
@@ -115,7 +113,7 @@ void setup() {
   digitalWrite(dewHeater_power, 0); 
   analogWrite(fanPWM, lowSpd);
 
-  tempSensor.begin(); //intializes the DS18B20 sensor
+
   
   WiFi_initializing(); //Connects ESP32 to WiFi
 
@@ -266,7 +264,7 @@ void socket_connection(void *taskParamaters){ //finished
   while(true){ //infinite loop to run task in
     delay(1000); //1 second delay to prvent watchdog trigger
     while(!connectFlag){ //while ESP32 is disconnected from control center
-      connectFlag = client.connect(compServerIP, 8080);
+      connectFlag = client.connect(compServerIP, 80);
       if(!connectFlag){
         Serial.println("No server connection!");
       }
