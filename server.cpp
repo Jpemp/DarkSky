@@ -40,7 +40,7 @@ int main() {
     server.ai_socktype = SOCK_STREAM; //IP address will be used for stream socket
     server.ai_protocol = IPPROTO_TCP; //TCP protocol will be used for communication for this address
     server.ai_flags = AI_PASSIVE; //indicates that this address will be used for socket binding
-    char port_number[] = "8080"; //contains the port number for the socket. Figure out how to change this rather than using locking it in code so it doesn't need to recompile if other applications are using this port
+    char port_number[] = "80"; //contains the port number for the socket. Figure out how to change this rather than using locking it in code so it doesn't need to recompile if other applications are using this port
 
     //cout << "test 1" << endl;
     WSADATA wsaData; //creates a structre to put the Windows socket data in
@@ -184,7 +184,7 @@ void temp_change() {
 
             send(clientSocket, tempChange, 256, 0);
             recv(clientSocket, tempCondition, 256, 0);
-            
+
         }
         else {
             cout << "Invalid Entry. Please Try Again" << endl;
@@ -200,13 +200,13 @@ void fan_change() {
     bool exitFan = false;
     bool exitMenu = false;
 
-    while(!exitMenu){
+    while (!exitMenu) {
         cout << "Fan Change:" << endl;
         cout << "Fan Speed: " << endl;
         cout << "(0): Exit" << endl;
         cout << "(1): Change Fan Speed" << endl;
         cout << endl;
-       
+
         cin >> exitChar;
         if (exitChar == '0') {
             send(clientSocket, "0", 256, 0);
@@ -249,9 +249,9 @@ void fan_change() {
             }
             exitFan = false;
         }
-            else {
-                cout << "Invalid Entry" << endl;
-            }
+        else {
+            cout << "Invalid Entry" << endl;
+        }
 
     }
 }
@@ -271,39 +271,39 @@ void time_change() { //still needs to be done
         cout << "(4): Change the duration the device is on" << endl;
         cin >> timeCommand;
         switch (timeCommand) {
-            case '0':
-                send(clientSocket, "0", 256, 0);
-                exitLoop = true;
-                break;
-            case '1':
-                send(clientSocket, "1", 256, 0);
-                cout << "Which schedule would you like to delete?" << endl;
-                cout << "(0): " << endl;
-                break;
-            case '2':
-                send(clientSocket, "2", 256, 0);
-                cout << "Please Enter A Time To Add: " << endl;
-                break;
-            case '3':
-                send(clientSocket, "3", 256, 0);
-                cout << "Which time would you like to change?" << endl;
-                cout << "(0)" << endl;
-                cout << "(1)" << endl;
-                cout << "(2)" << endl;
-                cout << "(3)" << endl;
-                break;
-            case '4':
-                send(clientSocket, "4", 256, 0);
-                recv(clientSocket, timeString, 256, 0);
-                cout << "Current Time-On Duration: " << timeString << endl;
-                cout << "Enter a new time-on duration" << endl;
-                cin >> timeString;
-                send(clientSocket, timeString, 256, 0);
-                break;
-            default:
-                cout << "Invalid Entry. Please Try Again" << endl;
-                break;
-            }
+        case '0':
+            send(clientSocket, "0", 256, 0);
+            exitLoop = true;
+            break;
+        case '1':
+            send(clientSocket, "1", 256, 0);
+            cout << "Which schedule would you like to delete?" << endl;
+            cout << "(0): " << endl;
+            break;
+        case '2':
+            send(clientSocket, "2", 256, 0);
+            cout << "Please Enter A Time To Add: " << endl;
+            break;
+        case '3':
+            send(clientSocket, "3", 256, 0);
+            cout << "Which time would you like to change?" << endl;
+            cout << "(0)" << endl;
+            cout << "(1)" << endl;
+            cout << "(2)" << endl;
+            cout << "(3)" << endl;
+            break;
+        case '4':
+            send(clientSocket, "4", 256, 0);
+            recv(clientSocket, timeString, 256, 0);
+            cout << "Current Time-On Duration: " << timeString << endl;
+            cout << "Enter a new time-on duration" << endl;
+            cin >> timeString;
+            send(clientSocket, timeString, 256, 0);
+            break;
+        default:
+            cout << "Invalid Entry. Please Try Again" << endl;
+            break;
+        }
     }
 
 }
@@ -311,14 +311,13 @@ void time_change() { //still needs to be done
 void power_settings() {
     char exitChar;
     bool exitLoop = false;
-    cout << "Power Settings:" << endl;
-    cout << "(0): Exit" << endl;
-    cout << "(1): Turn On Recording System" << endl;
-    cout << "(2): Turn Off Recording System" << endl;
-    cout << "(3): Turn On Fan" << endl;
-    cout << "(4): Turn Off Fan" << endl;
-
     while (!exitLoop) {
+        cout << "Power Settings:" << endl;
+        cout << "(0): Exit" << endl;
+        cout << "(1): Turn On Recording System" << endl;
+        cout << "(2): Turn Off Recording System" << endl;
+        cout << "(3): Turn On Fan" << endl;
+        cout << "(4): Turn Off Fan" << endl;
         cin >> exitChar;
         switch (exitChar) {
         case '0':
