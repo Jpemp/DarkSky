@@ -79,7 +79,7 @@ int main(void){
 	ASI_BOOL* gain_auto = (ASI_BOOL*)malloc(sizeof(ASI_BOOL)); //store the status of if gain is auto-adjusted here
 
 	ASISetControlValue(ZWOCamera->CameraID, ASI_EXPOSURE, exposure, ASI_TRUE); //exposure of camera is initially set at  100000 microseconds. ASI_TRUE means exposure will auto-adjust
-	//NOTE: If exposure becomes too long, the program will fail. I think it's because the code tries to capture an image that hasn't been made yet due to long exposure times. Be careful of this and adjust gain accordingly
+	//NOTE: If exposure becomes too long, the program will fail. I think it's because the code tries to capture an image that hasn't been made yet due to long exposure times. Be careful of this and adjust gain and exposure accordingly
 	ASISetControlValue(ZWOCamera->CameraID, ASI_GAIN, gain, ASI_FALSE); //gain is initially set at 100. ASI_FALSE means gain won't auto-adjust.
 
 	//cout << exposure << endl;
