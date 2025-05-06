@@ -18,13 +18,13 @@ static bool connectFlag = false;
 atomic <bool> exitFlag = false;
 
 //function declarations
-void temp_change();
-void fan_change();
-void time_change();
-void power_settings();
-void system_data();
-void user_Input();
-void server_menu();
+void temp_change(); //change the temperature condition on microcontroller
+void fan_change(); //change fan speed on microcontroller
+void time_change(); //change time schedule on microcontroller
+void power_settings(); //turn on/off the recording device and fan in the project
+void system_data(); //sub-menu which shows the temp and time of project, as well as if the recording device and fan are on or not
+void user_Input(); //thread function to end system_data function if a condition is triggered
+void server_menu(); //main menu to select microcontroller options from
 
 int main() {
 
@@ -40,7 +40,7 @@ int main() {
     server.ai_socktype = SOCK_STREAM; //IP address will be used for stream socket
     server.ai_protocol = IPPROTO_TCP; //TCP protocol will be used for communication for this address
     server.ai_flags = AI_PASSIVE; //indicates that this address will be used for socket binding
-    char port_number[] = "80"; //contains the port number for the socket. Figure out how to change this rather than using locking it in code so it doesn't need to recompile if other applications are using this port
+    char port_number[] = "8080"; //contains the port number for the socket. Figure out how to change this rather than using locking it in code so it doesn't need to recompile if other applications are using this port
 
     //cout << "test 1" << endl;
     WSADATA wsaData; //creates a structre to put the Windows socket data in
@@ -102,12 +102,12 @@ int main() {
         server_menu();
     }
 
-    closesocket(clientSocket);
+    closesocket(clientSocket); //closes the socket once the user has exited server_menu
 
     return 0;
 }
 
-void server_menu() {
+void server_menu() { //if socket communication was properly established, the user enters this menu in order to interact with microcontroller
     connectFlag = true;
     char commandMessage;
 
@@ -122,12 +122,12 @@ void server_menu() {
         cout << "(4): Change Time Schedule" << endl;
         cout << "(5): View System Power" << endl;
 
-        cin >> commandMessage;
+        cin >> commandMessage; //user input on which option to choose mentioned above
         //send(clientSocket, "Hello from Server", 256, 0);
         //recv(clientSocket, clieMessage, 256, 0);
         //cout << clieMessage << endl;
 
-        switch (commandMessage) {
+        switch (commandMessage) { //case statement reflects the options above
         case '0':
             cout << "Exiting program!" << endl;
             connectFlag = false;
@@ -159,7 +159,7 @@ void server_menu() {
     }
 }
 
-void temp_change() {
+void temp_change() { //view and change temperature condition data
     char exitChar;
     char tempChange[256] = "";
     char tempCondition[256] = "";
@@ -171,42 +171,42 @@ void temp_change() {
         cout << "(0): Exit" << endl;
         cout << "(1): Change Temperature" << endl;
         cout << "Temperature Condition: ";
-        cout << tempCondition << endl;
+        cout << tempCondition << endl; //current temperature condition shown here
         cin >> exitChar;
         if (exitChar == '0') {
-            send(clientSocket, "0", 256, 0);
+            send(clientSocket, "0", 256, 0); //exit sub-menu
             break;
         }
-        else if (exitChar == '1') {
+        else if (exitChar == '1') { //change temperature condition
             send(clientSocket, "1", 256, 0);
             cout << "Enter New Temperature Condition" << endl;
             cin >> tempChange;
 
             send(clientSocket, tempChange, 256, 0);
             recv(clientSocket, tempCondition, 256, 0);
-
+            
         }
         else {
             cout << "Invalid Entry. Please Try Again" << endl;
         }
     }
-    memset(tempCondition, 0, sizeof(tempCondition));
+    memset(tempCondition, 0, sizeof(tempCondition)); //clears out allocated memory
     memset(tempChange, 0, sizeof(tempChange));
 }
 
-void fan_change() {
+void fan_change() { //sub-menu to change fan speed
     char exitChar;
     char fanSpeed;
     bool exitFan = false;
     bool exitMenu = false;
 
-    while (!exitMenu) {
+    while(!exitMenu){
         cout << "Fan Change:" << endl;
         cout << "Fan Speed: " << endl;
         cout << "(0): Exit" << endl;
         cout << "(1): Change Fan Speed" << endl;
         cout << endl;
-
+       
         cin >> exitChar;
         if (exitChar == '0') {
             send(clientSocket, "0", 256, 0);
@@ -249,14 +249,14 @@ void fan_change() {
             }
             exitFan = false;
         }
-        else {
-            cout << "Invalid Entry" << endl;
-        }
+            else {
+                cout << "Invalid Entry" << endl;
+            }
 
     }
 }
 
-void time_change() { //still needs to be done
+void time_change() { //still needs to be done. This sub menu is meant to mess with the time-schedule system on the microcontroller, such as adding/removing/changing times and changing the duration the recording device is on for
     char exitChar;
     char timeCommand;
     bool exitLoop = false;
@@ -271,53 +271,54 @@ void time_change() { //still needs to be done
         cout << "(4): Change the duration the device is on" << endl;
         cin >> timeCommand;
         switch (timeCommand) {
-        case '0':
-            send(clientSocket, "0", 256, 0);
-            exitLoop = true;
-            break;
-        case '1':
-            send(clientSocket, "1", 256, 0);
-            cout << "Which schedule would you like to delete?" << endl;
-            cout << "(0): " << endl;
-            break;
-        case '2':
-            send(clientSocket, "2", 256, 0);
-            cout << "Please Enter A Time To Add: " << endl;
-            break;
-        case '3':
-            send(clientSocket, "3", 256, 0);
-            cout << "Which time would you like to change?" << endl;
-            cout << "(0)" << endl;
-            cout << "(1)" << endl;
-            cout << "(2)" << endl;
-            cout << "(3)" << endl;
-            break;
-        case '4':
-            send(clientSocket, "4", 256, 0);
-            recv(clientSocket, timeString, 256, 0);
-            cout << "Current Time-On Duration: " << timeString << endl;
-            cout << "Enter a new time-on duration" << endl;
-            cin >> timeString;
-            send(clientSocket, timeString, 256, 0);
-            break;
-        default:
-            cout << "Invalid Entry. Please Try Again" << endl;
-            break;
-        }
+            case '0':
+                send(clientSocket, "0", 256, 0);
+                exitLoop = true;
+                break;
+            case '1':
+                send(clientSocket, "1", 256, 0);
+                cout << "Which schedule would you like to delete?" << endl;
+                cout << "(0): " << endl;
+                break;
+            case '2':
+                send(clientSocket, "2", 256, 0);
+                cout << "Please Enter A Time To Add: " << endl;
+                break;
+            case '3':
+                send(clientSocket, "3", 256, 0);
+                cout << "Which time would you like to change?" << endl;
+                cout << "(0)" << endl;
+                cout << "(1)" << endl;
+                cout << "(2)" << endl;
+                cout << "(3)" << endl;
+                break;
+            case '4':
+                send(clientSocket, "4", 256, 0);
+                recv(clientSocket, timeString, 256, 0);
+                cout << "Current Time-On Duration: " << timeString << endl;
+                cout << "Enter a new time-on duration" << endl;
+                cin >> timeString;
+                send(clientSocket, timeString, 256, 0);
+                break;
+            default:
+                cout << "Invalid Entry. Please Try Again" << endl;
+                break;
+            }
     }
 
 }
 
-void power_settings() {
+void power_settings() { //sub-menu to turn on/off power supplied to recording device and fan
     char exitChar;
     bool exitLoop = false;
+    cout << "Power Settings:" << endl;
+    cout << "(0): Exit" << endl;
+    cout << "(1): Turn On Recording System" << endl;
+    cout << "(2): Turn Off Recording System" << endl;
+    cout << "(3): Turn On Fan" << endl;
+    cout << "(4): Turn Off Fan" << endl;
+
     while (!exitLoop) {
-        cout << "Power Settings:" << endl;
-        cout << "(0): Exit" << endl;
-        cout << "(1): Turn On Recording System" << endl;
-        cout << "(2): Turn Off Recording System" << endl;
-        cout << "(3): Turn On Fan" << endl;
-        cout << "(4): Turn Off Fan" << endl;
         cin >> exitChar;
         switch (exitChar) {
         case '0':
@@ -345,7 +346,7 @@ void power_settings() {
     cout << "Exiting..." << endl;
 }
 
-void system_data() {
+void system_data() { //view system data here
     thread t1(user_Input);
     char tempRead[256] = "";
     char timeRead[256] = "";
@@ -356,8 +357,6 @@ void system_data() {
     cout << "(0): Exit" << endl;
     cout << endl;
 
-    //chrono::seconds(5);
-
     while (!exitFlag) {
         recv(clientSocket, deviceOn, 1, 0);
         cout << "Recording Device: ";
@@ -367,7 +366,7 @@ void system_data() {
         else {
             cout << "Off" << endl;
         }
-        //chrono::seconds(1);
+
         recv(clientSocket, fanOn, 1, 0);
         cout << "Fan: ";
         if (fanOn[0] == '1') {
@@ -376,19 +375,19 @@ void system_data() {
         else {
             cout << "Off" << endl;
         }
-        //chrono::seconds(1);
+
         recv(clientSocket, tempRead, 256, 0);
         cout << "Temperature: ";
         cout << tempRead << endl;
-        //chrono::seconds(1);
+
         recv(clientSocket, timeRead, 256, 0);
         cout << "Time: ";
         cout << timeRead << endl;
-        //chrono::seconds(1);
+ 
         recv(clientSocket, fanRead, 256, 0);
         cout << "Fan Speed: ";
         cout << fanRead << endl;
-        //chrono::seconds(1);
+
 
     }
     //cout << "Exit Loop" << endl;
@@ -398,7 +397,7 @@ void system_data() {
 
 }
 
-void user_Input(void) {
+void user_Input(void) { //thread meant to interrupt data recvieved from microcontroller in the system_data function if the user inputs a 0
     char exitChar;
     do {
         cin >> exitChar;
