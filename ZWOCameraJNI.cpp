@@ -16,7 +16,7 @@ using namespace cv;
 
 atomic<bool> thread_end = false;
 
-void capture(ASI_CAMERA_INFO*, int);
+void capture(ASI_CAMERA_INFO*, int); //image capture function
 
 JNIEXPORT jint JNICALL Java_Main_Capture(JNIEnv *env, jobject obj, jboolean vidFlag, jint capTimer) { //creates this into a native java function that can be used in java
 
