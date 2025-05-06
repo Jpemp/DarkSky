@@ -8,6 +8,7 @@
 #include <chrono>
 
 #pragma comment(lib, "Ws2_32.lib") //needs to be added or else socket programming won't work on Windows
+//NOTE: this program will ONLY WORK ON WINDOWS OS
 
 using namespace std;
 
