@@ -7,13 +7,14 @@
 #include <atomic>
 #include <chrono>
 
+
 #pragma comment(lib, "Ws2_32.lib") //needs to be added or else socket programming won't work on Windows
 //NOTE: this program will ONLY WORK ON WINDOWS OS
 
 using namespace std;
 
-static int serverSocket;
-static int clientSocket;
+static int serverSocket; //server socket number ID
+static int clientSocket; //client socket number ID
 
 static bool connectFlag = false;
 atomic <bool> exitFlag = false;
