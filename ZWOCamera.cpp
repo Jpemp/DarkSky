@@ -27,8 +27,8 @@ int main(void){
 	//bool liveVid = (bool)vidFlag;
 	//int capTime = (int)capTimer;
 
-	bool liveVid = true;
-	int capTime = 10;
+	bool liveVid = true; //enable live video feed
+	int capTime = 10; //captures images every 10 seconds
 
 
 	cameraCount = ASIGetNumOfConnectedCameras(); //detects if an ASI camera is connected
