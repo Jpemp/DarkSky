@@ -8,8 +8,8 @@
 #include <opencv2/opencv.hpp>  //this is needed to generate pictures and look at live video
 
 
-//#include <jni.h>
-//#include "Main.h"
+//#include <jni.h> //need this for java wrapper
+//#include "Main.h" //this header file comes from a Java file and is generated from javac -h header file generation
 
 using namespace std;
 using namespace cv;
@@ -18,13 +18,13 @@ atomic<bool> thread_end = false;
 
 void capture(ASI_CAMERA_INFO*, int); //image capture function
 
-//JNIEXPORT jint JNICALL Java_Main_Capture(JNIEnv *env, jobject obj, jboolean vidFlag, jint capTimer) {
+//JNIEXPORT jint JNICALL Java_Main_Capture(JNIEnv *env, jobject obj, jboolean vidFlag, jint capTimer) { //creates this into a native java function that can be used in java
 
 int main(void){
 	int cameraCount; //to store the number of cameras detected
 	ASI_CAMERA_INFO* ZWOCamera = (ASI_CAMERA_INFO*)malloc(sizeof(ASI_CAMERA_INFO)); //allocates memory for ASI_CAMERA_INFO struct
 
-	//bool liveVid = (bool)vidFlag;
+	//bool liveVid = (bool)vidFlag; //converts java arguments into c++ variables
 	//int capTime = (int)capTimer;
 
 	bool liveVid = true; //enable live video feed
@@ -79,6 +79,7 @@ int main(void){
 	ASI_BOOL* gain_auto = (ASI_BOOL*)malloc(sizeof(ASI_BOOL)); //store the status of if gain is auto-adjusted here
 
 	ASISetControlValue(ZWOCamera->CameraID, ASI_EXPOSURE, exposure, ASI_TRUE); //exposure of camera is initially set at  100000 microseconds. ASI_TRUE means exposure will auto-adjust
+	//NOTE: If exposure becomes too long, the program will fail. I think it's because the code tries to capture an image that hasn't been made yet due to long exposure times. Be careful of this and adjust gain accordingly
 	ASISetControlValue(ZWOCamera->CameraID, ASI_GAIN, gain, ASI_FALSE); //gain is initially set at 100. ASI_FALSE means gain won't auto-adjust.
 
 	//cout << exposure << endl;
