@@ -7,14 +7,14 @@
 #include <string>
 #include <cstdlib>
 
-#define SCHEDULE_SIZE 5
+#define SCHEDULE_SIZE 5 //system set for 5 max time schedules in the system. could be modified to have more
 
 using namespace std;
 
-const char *wifi_ID = "NTGR_26A4_5G"; //set up with the NETGEAR router
-const char *password = "wp2aVA7s";
+const char *wifi_ID = "NTGR_26A4_5G"; //name of NETGEAR router Wi-Fi
+const char *password = "wp2aVA7s"; //password for NETGEAR router Wi-Fi
 const char *ntpServer = "pool.ntp.org"; //time server to connect to in order to get local time.
-const char *compServerIP = "198.168.1.1";
+const char *compServerIP = "192.168.1.180"; //IP address for socket communication with server program
 
 static bool connectFlag = false; //indicate if the ESP32 client socket is connected to server socket
 static char serverCommand[256] = ""; //used to store messages from server
@@ -23,19 +23,19 @@ WiFiClient client; //creates a client socket
 
 TaskHandle_t connection_task; //allows for more effecient code by doing socket checking and socket handling by core 0, while the rest of the code is handled by core 1. ESP32 is a dual core system
 
-static struct tm schedule_times[SCHEDULE_SIZE];
-static int number_of_schedules = 5;
-static int onTimeMin = 15;
+static struct tm schedule_times[SCHEDULE_SIZE]; //create a tm struct array to contain all time schedules in
+static int number_of_schedules = SCHEDULE_SIZE; //keep track of current number of schedules on microcontroller
+static int onTimeMin = 15; //time that the recording device is on for, which is initialized as 15 min
 
 static double utc_offset = -6*3600; //time displayed as military time. adjusted from greenwich mean time(utc) to central time(Texas time). Maybe include a function where this is adjustable?
-static double daylight_savings = 3600; //account for daylight savings. Figure out how to change this when daylight savings is over. Include a feature where its adjustable?
+static double daylight_savings = 3600; //accounts for daylight savings. Figure out how to change this when daylight savings is over. Include a feature where its adjustable?
 
 static struct tm time_ESP32; //time struct to keep track of utc time on ESP32
 
 static float fanOnTemp = 90.0; //temperature at which the fan turns on at
 static float temp; //temperature read by sensor
 
-//names of pins
+//assigning GPIO pins to variables  
 const int tempSensor_input = 39; //A3 pin. Used for DS18B20 temp sensor data line input
 const int fanPWM = 4; //A5 pin. Used to control fan speed with PWM signal
 const int fanSpeed_input = 34; //A2 pin. Used to monitor fan speed
@@ -51,33 +51,34 @@ void time_read(); //take time from NTP server.
 void fan_read(); //reads the speed of the fan
 void power_boolean_read(); //reads if the power is supplied to recording device and/or fan
 void WiFi_initializing(); //connects ESP32 to the NETGEAR WiFi
-void socket_connection(void*); //socket connection from ESP32 to a remote computer. Need to figure out how to connect between two networks.
-void communication();
-void control_menu(char*);
-void power_menu();
-void fanSpeedChange();
-void timeMenu();
-void tempChange();
+void socket_connection(void*); //socket connection from ESP32 to a remote computer. checks to see if the socket communication is still active. Need to figure out how to connect between two networks.
+void communication(); //recieves a message from server and passes it to control_menu function
+void control_menu(char*); //menu to select microcontroller functions from if socket communication was established
+void power_menu(); //sub-menu for power functions
+void fanSpeedChange(); //changing the speed fo the fan when it is powered on
+void timeMenu(); //sub-menu for time schedule functions
+void tempChange(); //changing the temperature condition
 void time_check(); //turn on recording device at the scheduled time
 void temp_check(); //turn on fan if it is too hot
-void record_on();
-void fan_on();
-void record_off();
-void fan_off();
-void time_add();
-void time_remove();
-void time_change();
-void remove_array_entry(int);
-void tm_initialization();
-void duration_change();
-void tm_print(int);
+void record_on(); //turn on recording device if signal is recieved from server
+void fan_on(); //turn on fan if signal is recieved from server
+void record_off(); //trun off fan if signal is recieved from server
+void fan_off(); //turn off fan if signal is recieved from server
+void time_add(); //add a new time to time schedule
+void time_remove(); //remove a time from the time schedule
+void time_change(); //change a current time in the time schedule
+void remove_array_entry(int); //removes the time from the time_schedule array
+void tm_initialization(); //creates a default set of 5 time schedules
+void duration_change(); //change the duration that the recording device on for when the time schedule is triggered 
+void tm_print(int); //print out the times currently being stored in the time schedule and send those times to the server 
 
-//flags to keep fan and recording device on regardless of conditional statement
+//flags to keep fan and recording device on/off regardless of conditional statement
 static bool fanFlag = false;
 static bool recordFlag = false;
 
 static bool fanOn = false;
 static bool recordOn = false;
+
 
 //fan speed modes
 static int offSpd = 0;
@@ -92,10 +93,8 @@ DallasTemperature tempSensor(&oneWire); //passes GPIO address to DallasTemperatu
 void setup() {
   // put your setup code here, to run once:
 
-  Serial.begin(115200); //serial communication to terminal
+  Serial.begin(115200); //serial communication to terminal. 115200 is the baud rate
 
-  tempSensor.begin(); //intializes the DS18B20 sensor
-  
   //pin configuration
   pinMode(LED_BUILTIN, OUTPUT); //LED on the board. We can use this to indicate that the board is on
   pinMode(fan_power, OUTPUT); //Connect to fan relay (GPIO 27/A10 input on ADC2)
@@ -106,20 +105,20 @@ void setup() {
   pinMode(fanSpeed_input, INPUT); //Connects fan speed data read to A2/GPIO 34
 
   //pin initialization
-  digitalWrite(LED_BUILTIN, 0); 
-  digitalWrite(fan_power, 0); 
-  digitalWrite(SQM_power, 0); 
-  digitalWrite(miniPC_power, 0); 
-  digitalWrite(dewHeater_power, 0); 
-  analogWrite(fanPWM, lowSpd);
+  digitalWrite(LED_BUILTIN, 0); //light on ESP32 starts as off
+  digitalWrite(fan_power, 0); //fan switch starts as off
+  digitalWrite(SQM_power, 0); //SQM switch starts as off
+  digitalWrite(miniPC_power, 0); //mini-PC starts as off
+  digitalWrite(dewHeater_power, 0); //dew heater starts as off
+  analogWrite(fanPWM, lowSpd); //sets fan at low speed
 
-
+  tempSensor.begin(); //intializes the DS18B20 sensor
   
   WiFi_initializing(); //Connects ESP32 to WiFi
 
   configTime(utc_offset, daylight_savings, ntpServer); //Configuring ESP32 time module to npt_server
 
-  tm_initialization();
+  tm_initialization(); //create a set of 5 time schedules
   
 
   xTaskCreatePinnedToCore(
@@ -159,7 +158,7 @@ void loop() { //NOTE: everything else besides the task is being ran on Core 1 I 
 
 // put function definitions here:
 void tm_initialization(void){ //finished
-  schedule_times[0].tm_hour = 18;
+  schedule_times[0].tm_hour = 18; //set in military time (so 18 means 6pm)
   schedule_times[0].tm_min = 0;
   schedule_times[0].tm_sec = 0;
 
@@ -181,13 +180,13 @@ void tm_initialization(void){ //finished
 }
 
 void temp_check(void) { //finished
-  tempSensor.requestTemperatures();
-  temp = tempSensor.getTempFByIndex(0);
+  tempSensor.requestTemperatures(); //gets data from the temperature sensor
+  temp = tempSensor.getTempFByIndex(0); //converts temperature sensor data into Farenheit
 
   Serial.print("Temperature: ");
   Serial.println(temp);
 
-  if((temp>=fanOnTemp) || (fanFlag)){ //subject to change. This is to turn on fan if its too hot in the enclosure as determined by the DS18B20 sensor
+  if((temp>=fanOnTemp) || (fanFlag)){ //This is to turn on fan if its too hot in the enclosure as determined by the DS18B20 sensor, OR if the server program has set the fan to stay on
     digitalWrite(fan_power, HIGH);
     fanOn = true;
   }
@@ -201,14 +200,15 @@ void time_check(void){ //finished
   int i;
 
   Serial.print("Time: ");
-  getLocalTime(&time_ESP32);
-  Serial.print(time_ESP32.tm_hour);
+  getLocalTime(&time_ESP32); //gets time from ntp server
+  Serial.print(time_ESP32.tm_hour); //print time in hour:minute:second format
   Serial.print(":");
   Serial.print(time_ESP32.tm_min);
   Serial.print(":");
   Serial.println(time_ESP32.tm_sec);
   
   for(i=0; i<SCHEDULE_SIZE; i++){ //this method for turning on at a schedule can be improved
+    //if it is the scheduled hour, the recording device will turn on for certain amount of time according to onTimeMin. OR the recording device will turn on if the server program enables it
     if(((time_ESP32.tm_hour == schedule_times[i].tm_hour) && (time_ESP32.tm_min < onTimeMin)) || (recordFlag)){ //change this to account for minutes spilling over
       digitalWrite(SQM_power, HIGH);
       digitalWrite(dewHeater_power, HIGH);
@@ -228,11 +228,11 @@ void time_check(void){ //finished
 void WiFi_initializing(void){ //finished
   int fail_count = 0;
 
-  WiFi.begin(wifi_ID, password);
+  WiFi.begin(wifi_ID, password); //tries to connect to a Wi-Fi network
   Serial.print("Connecting to ");
   Serial.print(wifi_ID);
   Serial.print("...");
-  while (WiFi.status()!=WL_CONNECTED){
+  while (WiFi.status()!=WL_CONNECTED){ //waits to get connected to a network. If it takes too long, the program will exit and continuously reset and try again until a connection is established
     if(fail_count >= 20){
       Serial.println("");
       Serial.print("WiFi connection is taking too long! Please look at WiFi connection! Retrying program...");
@@ -264,7 +264,7 @@ void socket_connection(void *taskParamaters){ //finished
   while(true){ //infinite loop to run task in
     delay(1000); //1 second delay to prvent watchdog trigger
     while(!connectFlag){ //while ESP32 is disconnected from control center
-      connectFlag = client.connect(compServerIP, 80);
+      connectFlag = client.connect(compServerIP, 8080); //connects to server program via socket connection
       if(!connectFlag){
         Serial.println("No server connection!");
       }
@@ -274,7 +274,7 @@ void socket_connection(void *taskParamaters){ //finished
       }
     }
 
-    connectFlag = client.connected();
+    connectFlag = client.connected(); //continuously checks to see if socket communication is still active
     if(!connectFlag){
       Serial.println("Computer has disconnected from ESP32!");
       client.stop(); //ends socket connection
@@ -294,9 +294,9 @@ void socket_connection(void *taskParamaters){ //finished
 void communication(void){ //finished
   Serial.println("COMMUNICATION");
   if (client.available()){
-    serverCommand[0] = client.read();
+    serverCommand[0] = client.read(); //recieves message from server program
     //Serial.println(serverCommand);
-    control_menu(serverCommand);
+    control_menu(serverCommand); //passes message from server program to control_menu
   }
     
    
@@ -328,6 +328,7 @@ void control_menu(char* command){
         fan_read();
         delay(1000);
       }
+      //sends system info to server
       break;
     case '1': //case 1 finished
       fanSpeedChange();
@@ -372,27 +373,27 @@ void control_menu(char* command){
 void temp_read(void){ //finished
   Serial.println("temp_read called");
   //Serial.println(to_string(temp).c_str());
-  client.write(to_string(temp).c_str());
+  client.write(to_string(temp).c_str()); //sends system temperature to server. needs to be sent as a character array otherwise issues occur
 }
 
 void time_read(void){ //finished
   Serial.println("time_read called");
   //Serial.println(asctime(&time_ESP32));
-  client.write(asctime(&time_ESP32));
+  client.write(asctime(&time_ESP32)); //sends current time of system to the server
   
 }
 
 void fan_read(void){
   Serial.println("fan_read called");
   //Serial.println(to_string(analogRead(fanSpeed_input)).c_str());
-  client.write(to_string(analogRead(fanSpeed_input)).c_str());
+  client.write(to_string(analogRead(fanSpeed_input)).c_str()); //sends fan speed data to server. needs to be sent as a character array otherwise issues occur
 } 
 
 void power_boolean_read(void){ //finished
   Serial.println("power_boolean_read called");
-  client.write(to_string(recordOn).c_str());
+  client.write(to_string(recordOn).c_str()); //sends if the recording device is on. needs to be sent as a character array otherwise issues occur
   delay(1000);
-  client.write(to_string(fanOn).c_str());
+  client.write(to_string(fanOn).c_str()); //sends if fan is on. needs to be sent as a character array otherwise issues occur
 }
 
 void tempChange(void){ //finished
@@ -401,28 +402,23 @@ void tempChange(void){ //finished
   int i=0;
   char changeCommand;
   bool exitMenu = false;
-  //changeCommand = client.read();
-  //Serial.println(changeCommand);
 
-  //if(changeCommand == '1'){ //issue here
-    Serial.println("ITS CALLED");
-    client.flush();
-    while(true){
-      delay(1000);
-      if(client.available()){
-        while(client.available()){
-            Serial.println(i);
-            tempChange[i]=client.read();
-            i++;
-        }
-        break;
+  client.flush();
+  while(true){
+    delay(1000);
+    if(client.available()){
+      while(client.available()){
+          Serial.println(i);
+          tempChange[i]=client.read(); //recieves message from server, which gives the new temperature condition
+          i++;
       }
+      break;
     }
-    Serial.println(tempChange);
-    fanOnTemp = atof(tempChange);
-    client.write(to_string(fanOnTemp).c_str());
-    memset(tempChange, 0, sizeof(tempChange));
-    //}
+  }
+  Serial.println(tempChange);
+  fanOnTemp = atof(tempChange); //changes the temperature condition based on message recieved from server
+  client.write(to_string(fanOnTemp).c_str());
+  memset(tempChange, 0, sizeof(tempChange));
 
   }
 
@@ -435,14 +431,14 @@ void fanSpeedChange(void){ //finished
     delay(1000); //prevents watchdog trigger
     
     if(client.connected()){
-      speedChange[0] = client.read();
+      speedChange[0] = client.read(); // message recieved from server
     }
     
-    if(!client.connected() || (speedChange[0] == '0')){
+    if(!client.connected() || (speedChange[0] == '0')){ //exits this function
       break;
     }
    
-    else if (speedChange[0]=='1'){
+    else if (speedChange[0]=='1'){ //fan speed sub-menu
       speedChange[0] = ' ';
       while(!exitLoop){
         delay(1000);
@@ -481,7 +477,7 @@ void fanSpeedChange(void){ //finished
   memset(speedChange, 0, sizeof(speedChange));
 }
 
-void timeMenu(void){ //still needs to be done
+void timeMenu(void){ //not finished
   Serial.println("timeMenu called");
   client.flush();
   char timeCommand;
@@ -497,19 +493,17 @@ void timeMenu(void){ //still needs to be done
         exitLoop = true;
         break;
       case '1':
-      if(number_of_schedules == 0){
+      if(number_of_schedules == 0){ //if there's no time schedules, the time_remove function won't be called
       }
       else{
         time_remove();
       }
       break;
       case '2':
-        if(number_of_schedules == 5){
-          time_add();
+        if(number_of_schedules == 5){ //if there's already 5 time schedules, the time_add function won't be called
         }
         else{
           time_add();
-          
         }
         break;
       case '3':
@@ -546,17 +540,17 @@ void duration_change(void){ //finished
   memset(serverCommand, 0, sizeof(serverCommand));
 }
 
-void time_add(void){
+void time_add(void){ //not finished
   Serial.println("time_add called");
   client.flush();
   tm_print(number_of_schedules);
   //client.write(asctime(schedule_times));
   char timeCommand[1] = ""; 
   int i = 0;
-  while(true){
+  while(true){ //this needs to be modified to support a stack data structure. FILO with the array
     delay(1000);
     if(client.available()){
-      timeCommand[i] = client.read();
+      timeCommand[i] = client.read(); //recieves message from server
       break;
     }
   }
@@ -565,34 +559,34 @@ void time_add(void){
     delay(1000);
     if(client.available()){
       while(client.available()){
-        serverCommand[i] = client.read();
+        serverCommand[i] = client.read(); //recieve a time from the server in an hour:minute:second format
         i++;
       }
       break;
     }
   }
   
-  char *token_string = strtok(serverCommand, ":");
-  schedule_times[atoi(timeCommand)].tm_hour = atoi(token_string); //change this to be adjusted for the element size
+  char *token_string = strtok(serverCommand, ":"); //splits up the server message based on the colons of the time string
+  schedule_times[atoi(timeCommand)].tm_hour = atoi(token_string); //first section of the time string is the hour
   
   token_string = strtok(NULL, ":"); 
-  schedule_times[atoi(timeCommand)].tm_min = atoi(token_string);
+  schedule_times[atoi(timeCommand)].tm_min = atoi(token_string); //second section of the time string is the minute
   
   token_string = strtok(NULL, ":");
-  schedule_times[atoi(timeCommand)].tm_sec = atoi(token_string);
+  schedule_times[atoi(timeCommand)].tm_sec = atoi(token_string); //last section of the time string is the second
   
   memset(serverCommand, 0, sizeof(serverCommand));
   number_of_schedules++;
 }
 
-void time_remove(void){
+void time_remove(void){ //not finished
   Serial.println("time_remove called");
   char timeCommand[1];
-  timeCommand[0] = client.read();
+  timeCommand[0] = client.read(); //recieve message from server. NEEDS TO BE PUT IN A PROPER WHILE LOOP AND IF STATEMENT
 
-  int x=0;
+  int x=0; //placeholder for testing purposes
   if(x==1){
-    remove_array_entry(atoi(timeCommand));
+    remove_array_entry(atoi(timeCommand)); //remove the time schedule selected by server
     client.write("Entry ");
     client.write(timeCommand);
     client.write(" was successfully removed!");
@@ -605,7 +599,7 @@ void time_remove(void){
   number_of_schedules--;
 }
 
-void time_change(void){
+void time_change(void){ //not finished
   Serial.println("time_change called");
   char timeCommand[1];
   int i = 0;
@@ -628,14 +622,14 @@ void time_change(void){
   timeMenu();
 }
 
-void tm_print(int i){
+void tm_print(int i){ //not finished
   
 }
 
-void remove_array_entry(int element){
+void remove_array_entry(int element){ //not finished
   Serial.println("remove_array_entry is called");
-  int arraySize = sizeof(schedule_times)/sizeof(schedule_times[0]);
-  for(int i=element; i<arraySize; i++){
+  int arraySize = sizeof(schedule_times)/sizeof(schedule_times[0]); 
+  for(int i=element; i<arraySize; i++){ //this for loop is to find the time schedule that the server wishes to remove, remove it, then readjust the array size
     schedule_times[i] = schedule_times[i+1];
   }
 }
@@ -649,23 +643,23 @@ void power_menu(void){ //finished
     if(!client.connected()){
       break;
     }
-    power_command[0] = client.read();
+    power_command[0] = client.read(); //recieves a message from the server which tells the microcontroller what to turn on/off
     Serial.println(power_command);
     switch(power_command[0]){
       case '0':
-        exitLoop = true;
+        exitLoop = true; //exit sub-menu
         break;
       case '1':
-        record_on();
+        record_on(); //turn on recording device
         break;
       case '2':
-        record_off();
+        record_off(); //turn off recording device
         break;
       case '3':
-        fan_on();
+        fan_on(); //turn on fan
         break;
       case '4':
-        fan_off();
+        fan_off(); //turn off fan
         break;
       default:
         break;
@@ -677,20 +671,20 @@ void power_menu(void){ //finished
 
 void record_on(void){ //finished
   Serial.println("record_on called");
-  recordFlag = true;
+  recordFlag = true; //turns on recording device
 }
 
 void fan_on(void){ //finished
   Serial.println("fan_on called");
-  fanFlag = true;
+  fanFlag = true; //turns fan on
 }
 
 void record_off(void){ //finished
   Serial.println("record_off called");
-  recordFlag = false;
+  recordFlag = false; //turns recording device off
 }
 
 void fan_off(void){ //finished
   Serial.println("fan_off called");
-  fanFlag = false;
+  fanFlag = false; //turns fan off
 }
