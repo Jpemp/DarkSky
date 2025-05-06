@@ -27,8 +27,8 @@ JNIEXPORT jint JNICALL Java_Main_Capture(JNIEnv *env, jobject obj, jboolean vidF
 	bool liveVid = (bool)vidFlag; //converts java arguments into c++ variables
 	int capTime = (int)capTimer;
 
-	//bool liveVid = true;
-	//int capTime = 10;
+	//bool liveVid = true; //enable live video feed
+	//int capTime = 10; //captures images every 10 seconds
 
 
 	cameraCount = ASIGetNumOfConnectedCameras(); //detects if an ASI camera is connected
